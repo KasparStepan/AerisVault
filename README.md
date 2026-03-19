@@ -1,4 +1,4 @@
-# 🚀 AerisVault Workspace
+# 🚀 AerisVault 
 
 > **Notice:** The architecture, directory structure, and initial documentation of this project were drafted with the assistance of AI.
 
@@ -42,3 +42,5 @@ To set up the workspace locally for development:
    cd apps/aerisvault-ui
    streamlit run src/aerisvault/app.py
    ```
+
+   # Work in Progress
