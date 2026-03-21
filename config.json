@@ -1,0 +1,23 @@
+{
+    "data_dir": "data",
+    "db_name": "aerisvault.db",
+    "max_file_size_mb": 50,
+    "filter_settings": {
+        "enabled_by_default": true,
+        "default_filter_type": "cfc",
+        "cfc_class": 60,
+        "moving_avg_window": 5,
+        "lowpass_cutoff_freq": 60.0,
+        "savgol_window_length": 51,
+        "savgol_polyorder": 3
+    },
+    "plot_settings": {
+        "theme": "plotly_white",
+        "width": 800,
+        "height": 500,
+        "line_width": 2,
+        "font_size": 12,
+        "show_grid": true
+    },
+    "config_path": "config.json"
+}
