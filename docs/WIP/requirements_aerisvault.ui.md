@@ -1,9 +1,11 @@
-# 🚀 AerisVault UI: Software Architecture & Feature Specification
+# AerisVault UI: Software Architecture & Feature Specification
+
+> **Status:** The core UI is **implemented** (database management, single analysis, comparison, settings). Features marked below that depend on DynaPrep (simulation setup wizard) or are listed under future work (3D kinematics, report generation, user authentication) are **not yet implemented**.
 
 ## 1. Executive Summary
-**AerisVault UI** is the interactive, web-based frontend application of the AerisVault SPDM (Simulation Process and Data Management) ecosystem. 
+**AerisVault UI** is the interactive, web-based frontend application of the AerisVault SPDM (Simulation Process and Data Management) ecosystem.
 
-Built on top of the Streamlit framework, it serves as the central command portal for 3rd-party users and engineers who do not possess deep LS-DYNA expertise. AerisVault UI strictly adheres to the "Thin UI" paradigm: it performs zero heavy engineering computations. Instead, it acts as an intelligent orchestrator—collecting user inputs, managing the database, and delegating the actual pre-processing and post-processing workloads to the underlying `dynaprep` and `dynaprocessing` libraries.
+Built on top of the Streamlit framework, it serves as the central command portal for engineers working with LS-DYNA parachute simulations. AerisVault UI strictly adheres to the "Thin UI" paradigm: it performs zero heavy engineering computations. Instead, it acts as an intelligent orchestrator — collecting user inputs, managing the database, and delegating the post-processing workload to the `dynaprocessing` library.
 
 ## 2. Software Architecture
 The application is structured to ensure maximum reusability, secure state management, and a clean separation between visual elements and data transactions.

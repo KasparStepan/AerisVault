@@ -1,82 +1,126 @@
 # DynaProcessing
 
-**DynaProcessing** is a Python-based analysis tool designed specifically for Mechanical Engineers to extract, filter, post-process, and visualize data from LS-DYNA simulations.
+**DynaProcessing** is a Python-based analysis library designed specifically for Mechanical Engineers to extract, filter, post-process, and visualize data from LS-DYNA parachute FSI simulations.
 
-It provides a highly intuitive declarative interface, allowing users to rapidly process both Infinite Mass and Finite Mass analyses with built-in support for SAE filtering, automatic unit conversions, and dimensionless aerodynamics computations (like Drag Coefficients).
-
----
-
-## 🚀 Key Features
-
-* **Declarative `Job` Interface:** Run comprehensive data post-processing via a single `Job` object. Define what directories to scan, what curves to extract, and how you want them formatted and you are ready to go.
-* **Automatic Unit Conversions:** Effortlessly convert output units. Setting `to_G=True` will auto-detect curves measuring accelerations and convert them from $m/s^2$ into $G$s. Forces are uniformly reported in Newtons $[N]$.
-* **Automated LS-DYNA Type Inference:** Pass the tool a directory and it will intelligently determine whether to run an `Infinite Mass` (`.dat` files) or `Finite Mass` (`.csv` files) pipeline.
-* **Combined Plotting:** Visualize independent property traces on a single axis simply by flagging `combine_plots=True`. 
-* **Built-in Digital Filtering:** Instantly apply SAE `CFC` channel frequency filters, `Butterworth` low-pass filters, or `Moving Average` filters dynamically to your output signals.
-* **Aerodynamics Capabilities:** Calculate Dimensionless Drag Coefficients seamlessly out of standard Z/X-forces by supplying a reference velocity and working area.
-* **Export Workflows:** Choose between viewing the graphical output dynamically in an interactive Jupyter environment, plotting them in standalone Matplotlib windows, or piping the entire analysis layout into a paginated `.pdf` presentation report.
+It provides both a low-level `Curve`-based API for fine-grained control and a high-level declarative `Job` interface for rapid processing.
 
 ---
 
-## ⚙️ Installation
+## Key Features
 
-1. Clone the repository.
-2. We highly recommend creating a sandboxed virtual environment before installing the requirements:
+* **Immutable `Curve` Model:** The fundamental data unit — an immutable time-series container that tracks all transformations via `filter_history`. All operations return new Curves; originals are never mutated.
+* **Automatic Type Inference:** Pass a directory and the library determines whether to run an Infinite Mass (`.dat` files) or Finite Mass (`.csv` files) pipeline.
+* **Digital Signal Processing:** SAE CFC filters, Butterworth low-pass, Moving Average, and Savitzky-Golay filters — all with full traceability.
+* **Aerodynamic Calculations:** Drag coefficient (Cd), drag area (CdS) from constant or time-varying velocity, G-force conversion, force derivation (F = m * a).
+* **Statistical Analysis:** Mean, std, min, max, RMS, median, peak detection, settling time, FFT frequency analysis, windowed statistics.
+* **Event Detection:** Automatic detection of deployment, inflation phases, steady-state, and oscillation characteristics from force/acceleration curves.
+* **Simulation Comparison:** Time-series alignment to common grids, RMSE calculation, difference curves, side-by-side statistics.
+* **Derivatives:** First and second order numerical derivatives with optional smoothing.
+* **Visualization:** Matplotlib (static/PDF) and Plotly (interactive/web) plotting from lists of Curves.
+* **Declarative `Job` Interface:** Define a configuration object with directory, variables, filters, and transformations — the library executes the full pipeline.
+
+---
+
+## Installation
+
+Install in editable mode from the monorepo root:
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-3. Install the dependencies:
-```bash
-pip install -r requirements.txt
+pip install -e ./libs/dynaprocessing
 ```
 
-> **Note:** Depending on your environment, you may need to ensure `scipy` and `matplotlib` are up to date!
-
 ---
 
-## 📖 Quick Start
+## Quick Start
 
-The best way to understand how it works is to review the `examples/` directory. You will find both standard Python scripts (`.py`) and executed Jupyter Notebooks (`.ipynb`).
-
-For full API documentation on how to configure your own custom analyses, read the **[Usage Guide](docs/usage.md)**.
-
-Here is a quick snippet demonstrating how to process nodal accelerations from a Finite Mass simulation:
+### Using the Curve API directly
 
 ```python
-from dynaproc.analysis.postprocess import Job
+from dynaprocessing import InfiniteMassSimulation
 
-# 1. Define your job processing configuration
+# Load a wind-tunnel simulation from a directory of .dat files
+sim = InfiniteMassSimulation(directory_path="path/to/results/")
+
+# Access force curves
+fpz = sim.curves["Fpz"]
+
+# Apply SAE CFC-60 filter
+fpz_filtered = fpz.apply_cfc_filter(cfc=60)
+
+# Get statistics
+stats = fpz_filtered.statistics()  # {mean, std, min, max, rms, median}
+
+# Calculate drag coefficient
+cd = fpz_filtered.calculate_drag_coefficient(velocity=6.0, area=7.0, rho=1.225)
+```
+
+### Using the Job API
+
+```python
+from dynaprocessing import Job
+
 job = Job(
-    directory="../results/finite-mass/6kg-6ms",
+    directory="path/to/results/",
     variables=["z_acceleration", "resultant_velocity"],
-    to_G=True,             # Converts z_acceleration (but not resultant_velocity) to Gs
-    filter_type="cfc",     # Apply a CFC SAE filter
-    filter_settings=60,    # CFC=60
-    combine_plots=True,    # Overlay both properties on the same Matplotlib interface
-    plot_settings={
-        "grid_major": True,
-        "grid_minor": True,
-        "title": "Combined Accelerations & Velocities"
-    }
+    to_G=True,
+    filter_type="cfc",
+    filter_settings=60,
 )
 
-# 2. Execute!
-job.process()
+curves = job.process()
+```
+
+### Finite Mass (Drop Test) Analysis
+
+```python
+from dynaprocessing import FiniteMassSimulation
+
+sim = FiniteMassSimulation(directory_path="path/to/drop_test/")
+
+# Get acceleration curve for a node
+accel = sim.curves[node_id]["z_acceleration"]
+
+# Convert to G-forces
+accel_g = accel.to_g()
+
+# Derive force from acceleration
+force = accel.to_force(mass=6.0)
 ```
 
 ---
 
-## 🗂 Project Structure
+## Project Structure
 
-* `src/dynaproc/` - Core library architecture.
-  * `models/` - Curve abstractions and Infinite/Finite mass logic.
-  * `io/` - CSV and `.dat` parsing interfaces.
-  * `analysis/` - Post-processing `Job` API and Digital Signal filters.
-* `examples/` - Working workflow examples.
-* `docs/` - Technical guides and folder naming conventions.
-* `results/` - Sandbox space for LS-DYNA simulation input data.
-
-## 🤝 Contributing
-
-Contributions, bug reports, and pull requests are welcome! If you intend to use the automated Metadata extraction, make sure to read the [Folder Naming Conventions](docs/folder_naming_conventions.md) document to see how simulation result folders should be structured.
+```
+libs/dynaprocessing/
+├── pyproject.toml
+├── README.md
+├── src/dynaprocessing/
+│   ├── __init__.py              # Public API exports
+│   ├── models/
+│   │   ├── curve.py             # Immutable Curve container
+│   │   ├── simulation.py        # Base simulation class
+│   │   ├── infinite_mass.py     # Wind-tunnel (.dat) analysis
+│   │   └── finite_mass.py       # Drop test (.csv) analysis
+│   ├── io/
+│   │   ├── lsdyna_csv.py        # .dat and .csv parsers
+│   │   └── metadata.py          # Directory name metadata extraction
+│   ├── analysis/
+│   │   ├── filters.py           # CFC, Butterworth, Moving Avg, Savgol
+│   │   ├── statistics.py        # Stats, peaks, settling, FFT
+│   │   ├── event_detection.py   # Deploy, inflate, steady-state detection
+│   │   ├── derivatives.py       # 1st/2nd order derivatives
+│   │   ├── comparison.py        # Align, RMSE, difference curves
+│   │   └── postprocess.py       # Declarative Job API
+│   └── viz/
+│       └── plot_utils.py        # Matplotlib and Plotly plotting
+└── tests/                       # 100+ automated tests
+    ├── test_curve.py
+    ├── test_filters.py
+    ├── test_parsers.py
+    ├── test_statistics.py
+    ├── test_event_detection.py
+    ├── test_derivatives.py
+    ├── test_comparison.py
+    ├── test_physics.py
+    └── test_metadata.py
+```

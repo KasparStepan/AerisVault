@@ -1,7 +1,9 @@
-# 🛠️ DynaPrep: Software Architecture & Feature Specification
+# DynaPrep: Software Architecture & Feature Specification
+
+> **Status:** This library is **not yet implemented**. The specification below describes the planned design. The current codebase contains only an empty stub at `libs/dynaprep/`.
 
 ## 1. Executive Summary
-**DynaPrep** is a lightweight, high-speed Python library designed for the automated pre-processing and generation of LS-DYNA input decks (`.k` files). 
+**DynaPrep** is a lightweight, high-speed Python library designed for the automated pre-processing and generation of LS-DYNA input decks (`.k` files).
 
 As the foundational setup engine within the AerisVault ecosystem, DynaPrep strictly separates "dumb" geometric mesh data from "smart" physical setups. It utilizes a robust templating engine to dynamically inject user-defined boundary conditions, material properties, and solver controls into simulation files, completely eliminating the need for manual text editing or LS-PrePost manipulation for routine analyses.
 

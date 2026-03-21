@@ -1,0 +1,9 @@
+# Root pyproject.toml — not a package itself, but defines the unified version.
+# When bumping the version, update ALL pyproject.toml files to match:
+#   - libs/dynaprocessing/pyproject.toml
+#   - libs/dynaprep/pyproject.toml
+#   - apps/aerisvault-ui/pyproject.toml
+
+[project]
+name = "aerisvault-workspace"
+version = "0.1.0"

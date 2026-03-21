@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dynaprep"
+version = "0.1.0"
+description = "Pre-processing library for generating LS-DYNA input decks within the AerisVault ecosystem."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+
+dependencies = [
+    "jinja2>=3.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

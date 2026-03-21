@@ -50,6 +50,14 @@ cd apps/aerisvault-ui
 /home/stepan/projects/PhD/AerisVault/.venv/bin/pip install -e apps/aerisvault-ui
 ```
 
+## Versioning
+
+The entire monorepo uses a **single unified version**. When bumping the version, update ALL four `pyproject.toml` files to the same value:
+- `pyproject.toml` (root)
+- `libs/dynaprocessing/pyproject.toml`
+- `libs/dynaprep/pyproject.toml`
+- `apps/aerisvault-ui/pyproject.toml`
+
 ## Architecture
 
 This is a monorepo for post-processing LS-DYNA parachute FSI simulations. The core principle is strict separation: **libraries do all computation, the UI does none**.
@@ -91,4 +99,4 @@ Key design decisions:
 ### What does NOT exist yet
 - `libs/dynaprep/` is an empty stub — out of scope, future project.
 - No report generation or data export features.
-- `apps/dynaprocessing/` inside `apps/` is a leftover artefact — ignore it.
+- `apps/aerisvault-old/` is the legacy monolithic app — reference only, do not modify.

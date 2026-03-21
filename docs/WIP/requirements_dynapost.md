@@ -1,9 +1,11 @@
-# 🌪️ DynaProcessing: Software Architecture & Feature Specification
+# DynaProcessing: Software Architecture & Feature Specification
+
+> **Status:** All features described below are **implemented** unless noted otherwise.
 
 ## 1. Executive Summary
-**DynaProcessing** is a standalone, high-performance Python library designed specifically for post-processing, filtering, and analyzing Fluid-Structure Interaction (FSI) parachute simulations from LS-DYNA. 
+**DynaProcessing** is a standalone Python library designed specifically for post-processing, filtering, and analyzing Fluid-Structure Interaction (FSI) parachute simulations from LS-DYNA.
 
-Operating as the core analytical engine within the broader AerisVault ecosystem, DynaProcessing is strictly decoupled from any Graphical User Interface (GUI). It acts as a "headless" computational library that ingests raw solver outputs, applies complex engineering mathematics, and yields standardized data structures (Curves, DataFrames) and visualizations.
+Operating as the core analytical engine within the broader AerisVault ecosystem, DynaProcessing is strictly decoupled from any Graphical User Interface (GUI). It acts as a "headless" computational library that ingests raw solver outputs (`.dat` and `.csv` files), applies complex engineering mathematics, and yields standardized data structures (immutable `Curve` objects) and visualizations.
 
 ## 2. Software Architecture
 DynaProcessing follows a modular, object-oriented architecture built on the principles of Data Decoupling and Separation of Concerns.

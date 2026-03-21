@@ -3,7 +3,7 @@
 > **Notice:** This documentation was initially drafted with the assistance of AI. It serves as the foundational design document for the AerisVault ecosystem.
 
 ## 1. Executive Summary
-AerisVault is a Simulation Process and Data Management (SPDM) platform tailored for Fluid-Structure Interaction (FSI) simulations of parachutes in LS-Dyna. The primary goal of this architecture is to provide a user-friendly web interface for 3rd-party users while strictly decoupling the "dumb" user interface from the "smart" engineering computational engines.
+AerisVault is a Simulation Process and Data Management (SPDM) platform tailored for Fluid-Structure Interaction (FSI) simulations of parachutes in LS-DYNA. The primary goal of this architecture is to provide a user-friendly web interface while strictly decoupling the "dumb" user interface from the "smart" engineering computational engines.
 
 ## 2. Core Architectural Principles
 The project is built as a **Monorepo** using the **`src` layout** pattern. This ensures that:
@@ -17,38 +17,46 @@ The AerisVault ecosystem consists of three primary modules:
 ### A. AerisVault UI (The Application)
 * **Location:** `apps/aerisvault-ui/`
 * **Tech Stack:** Streamlit, SQLAlchemy, Plotly.
-* **Role:** The frontend portal (App). It handles user authentication, connects to the SQLite metadata database, and acts as the orchestrator. It collects user inputs (e.g., mass, velocity) and delegates the actual work to the underlying libraries.
+* **Role:** The frontend portal. It connects to the SQLite metadata database and acts as the orchestrator. Users upload LS-DYNA output files, browse simulations, run analysis, and compare results. All computation is delegated to `dynaprocessing`.
 
-### B. DynaPrep (The Pre-processor)
+**Pages:**
+1. **Dashboard** (`app.py`) — Overview with simulation count and quick navigation.
+2. **Database** (`pages/01_database.py`) — Simulation registry, file upload, tagging.
+3. **Single Analysis** (`pages/02_single_analysis.py`) — Filter, derive, visualize, and detect events for a single simulation.
+4. **Comparison** (`pages/03_comparison.py`) — Multi-simulation overlay, RMSE, side-by-side statistics.
+5. **Settings** (`pages/04_settings.py`) — Filter and plot configuration (persisted to `config.json`).
+
+### B. DynaProcessing (The Post-processor)
+* **Location:** `libs/dynaprocessing/`
+* **Tech Stack:** NumPy, SciPy, Pandas, Matplotlib, Plotly, PyArrow.
+* **Role:** The core computational library. It parses raw LS-DYNA output files (`.dat` for infinite mass / wind-tunnel, `.csv` for finite mass / drop test), applies digital signal filtering (SAE CFC, Butterworth, Moving Average, Savitzky-Golay), calculates aerodynamic coefficients, detects events, computes statistics, and produces visualizations.
+
+### C. DynaPrep (The Pre-processor) — Not Yet Implemented
 * **Location:** `libs/dynaprep/`
 * **Tech Stack:** Python, Jinja2.
-* **Role:** A lightweight library responsible for generating LS-Dyna input decks (`.k` files). It takes static, physics-free meshes from the database and uses Jinja2 templating to dynamically inject boundary conditions, materials, and control cards based on UI inputs.
-
-### C. DynaProcessing (The Post-processor)
-* **Location:** `libs/dynaprocessing/`
-* **Tech Stack:** NumPy, Pandas, PyVista, Plotly.
-* **Role:** A heavy computational library. It parses raw LS-Dyna outputs (e.g., `nodout`, `d3plot`), applies digital signal filtering (SAE, CFC), and reduces massive 3D topologies into lightweight `.parquet` files for fast web rendering.
+* **Role:** (Future) A lightweight library responsible for generating LS-DYNA input decks (`.k` files). Currently an empty stub.
 
 ## 4. Directory Structure
 ```text
-aerisvault-workspace/
-├── data/                   # Local databases, static meshes, and parquet results (Not in Git)
-├── docs/                   # Centralized ecosystem documentation
+AerisVault/
+├── config.json             # Application configuration (filter & plot settings)
+├── aerisvault.db           # SQLite metadata database
+├── data/                   # Simulation data (not in Git)
+│   ├── raw/                # Uploaded .dat/.csv files (sim_{id}/)
+│   └── processed/          # Converted .parquet files (sim_{id}/)
+├── docs/                   # Centralised ecosystem documentation
 ├── libs/
-│   ├── dynaprep/           # Input generator library
-│   └── dynaprocessing/     # Results analyzer library
+│   ├── dynaprocessing/     # Post-processor library (implemented, tested)
+│   └── dynaprep/           # Pre-processor library (stub)
 └── apps/
-    └── aerisvault-ui/      # Streamlit Web Application
-
+    ├── aerisvault-ui/      # Streamlit Web Application
+    └── aerisvault-old/     # Legacy monolithic app (reference only)
 ```
 
-## 5. Data Flow (Simulation Lifecycle)
-* **Input:** User configures a drop test via aerisvault-ui.
+## 5. Data Flow (Current Implementation)
 
-* **Pre-processing:** The UI calls dynaprep. dynaprep fetches the raw .k mesh, applies .j2 templates, and generates a ready-to-run simulation folder.
-
-* **Execution:** The solver (LS-Dyna) is triggered (locally or via HPC cluster).
-
-* **Post-processing:** The UI calls dynaprocessing on the result folder. The library extracts time-series data and lightweight 3D kinematics, saving them as .parquet.
-
-* **Visualization: The UI reads the .parquet files and renders interactive Plotly charts and 3D animations.
+1. **Upload:** User uploads raw LS-DYNA output files (`.dat` or `.csv`) via the Database page.
+2. **Storage:** Files are saved to `data/raw/sim_{id}/`. Metadata (simulation name, type, parameters) is stored in SQLite via SQLAlchemy ORM.
+3. **Conversion:** On upload, `.dat`/`.csv` files are automatically parsed by `dynaprocessing` and converted to `.parquet` format in `data/processed/sim_{id}/` for fast loading.
+4. **Analysis:** The Analysis page loads curves via `InfiniteMassSimulation` or `FiniteMassSimulation`, applies user-selected filters, computes derived quantities (G-forces, CdS, derivatives), detects events, and renders interactive Plotly charts.
+5. **Comparison:** The Comparison page loads curves from multiple simulations, aligns them to a common time grid, and computes RMSE and side-by-side statistics.
