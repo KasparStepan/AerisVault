@@ -19,11 +19,11 @@ The repository is divided into two main categories: **Applications** (frontends 
 * **[`dynaprep`](libs/dynaprep/)**: The Pre-processor (stub, not yet implemented). Will be a lightweight templating engine (powered by Jinja2) that generates LS-DYNA input decks (`.k` files) from static meshes and dynamic boundary conditions.
 
 ## Documentation
-Detailed documentation for the architecture, development guidelines, and deployment strategies can be found in the `docs/` directory:
-* [Architecture Overview](docs/architecture.md)
-* [Development Guide](docs/development.md)
-* [Getting Started / Installation](docs/getting_started.md)
-* [User Guide](docs/user_guide.md)
+Architecture and conventions live in [`CLAUDE.md`](CLAUDE.md). Active design specs and implementation plans are in `docs/`:
+* [Portal architecture spec](docs/superpowers/specs/2026-06-13-portal-architecture-design.md) — the single-shell, modules-as-tools platform design
+* [aerocfd design spec](docs/superpowers/specs/2026-05-10-aerocfd-design.md) and [CFD work package](docs/WorkPackages/CFD.md) — aircraft CFD module
+* [Implementation plans](docs/superpowers/plans/) — portal+FSI migration, dynaprocessing refinement, aerocfd slice 1
+* [DynaPrep requirements](docs/WIP/requirements_dynaprep.md) — design for the future pre-processor library
 
 ## Quick Start (Development)
 To set up the workspace locally for development:

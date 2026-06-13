@@ -868,21 +868,18 @@ Click "← All tools". Expected: back to the portal home; `active_module` cleare
 
 **Files:**
 - Modify: `CLAUDE.md`
-- Modify: `docs/architecture.md`
+
+CLAUDE.md is the living architecture reference (the standalone `docs/architecture.md` was retired). The portal architecture spec covers the design; CLAUDE.md carries the working conventions.
 
 - [ ] **Step 1: Update CLAUDE.md architecture section**
 
 In `CLAUDE.md`, replace the directory-layout block and add a "Portal architecture" note describing: one shell app at `apps/aerisvault/`, modules under `src/aerisvault/modules/<key>/`, the `ModuleDescriptor` + `registry.py` contract, two-level navigation, per-module DB under `data/<key>/`, and session-state key namespacing (`<key>.*`). Update the version-bump checklist path `apps/aerisvault-ui/pyproject.toml` → `apps/aerisvault/pyproject.toml`. Update the "Start the Streamlit app" command to `cd apps/aerisvault && .venv/bin/streamlit run src/aerisvault/app.py`.
 
-- [ ] **Step 2: Update docs/architecture.md**
-
-Update §3 (System Components), §4 (Directory Structure), and §5 (Data Flow) to describe the portal shell, modules, and `data/<key>/` layout. Mark `aerisvault-ui` references as the renamed `aerisvault` shell.
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
 cd /home/stepan/projects/PhD/AerisVault
-git add CLAUDE.md docs/architecture.md
+git add CLAUDE.md
 git commit -m "docs: describe portal architecture and module contract"
 ```
 

@@ -3,7 +3,7 @@
 **Status:** Draft (awaiting Stepan's review)
 **Date:** 2026-06-13
 **Authors:** Stepan + Claude (brainstorming session)
-**Related:** [`docs/architecture.md`](../../architecture.md), [`docs/superpowers/specs/2026-05-10-aerocfd-design.md`](2026-05-10-aerocfd-design.md)
+**Related:** [`CLAUDE.md`](../../../CLAUDE.md) (living architecture reference), [`docs/superpowers/specs/2026-05-10-aerocfd-design.md`](2026-05-10-aerocfd-design.md)
 
 ---
 
