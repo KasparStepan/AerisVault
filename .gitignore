@@ -205,3 +205,6 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Windows "mark of the web" alternate-data-stream metadata (from WSL/downloads)
+*Zone.Identifier
