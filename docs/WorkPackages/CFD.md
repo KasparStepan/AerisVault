@@ -58,12 +58,14 @@ The Fluent setup is fixed: force and moment reports are always in body axes, reg
 - **x = forward, z = up, right-handed coordinate system**, which means y points to the **left**.
 - **α positive = nose up** (standard aerospace).
 
-The library performs the body-to-wind rotation per case (2D, no sideslip):
+The library performs the body-to-wind rotation per case (2D, no sideslip). Fluent reports the force *on the body* with x forward, so a draggy body has `Fx < 0` (drag points −X); positive lift is +Z. The correct transform (confirmed 2026-06-13) is:
 
 ```
-D =  Fx · cos(α) + Fz · sin(α)
-L = -Fx · sin(α) + Fz · cos(α)
+D = -Fx · cos(α) + Fz · sin(α)
+L =  Fx · sin(α) + Fz · cos(α)
 ```
+
+At α=0 this gives `D = -Fx` (positive for a draggy body) and `L = Fz`. A `CD(α=0) > 0` gold test pins this; the UI also warns if any computed CD is negative.
 
 **Pitching-moment sign flip.** With y pointing left, Fluent's right-hand-rule My is nose-down positive, opposite to the aerospace Cm convention (nose-up positive). The library therefore applies:
 
@@ -88,25 +90,27 @@ The module should mirror the current AerisVault pattern where the library perfor
 The new module should therefore be split into:
 
 - `libs/aerocfd/` for aerodynamic data structures, calculations, grouping logic, and plotting helpers.
-- `apps/aerocfd-ui/` for Streamlit pages and user interactions.
+- `apps/aerisvault/src/aerisvault/modules/aerocfd/` for Streamlit pages and user interactions (a module in the portal shell, not a standalone app).
 
 ## Monorepo Placement
 
 The proposed new module should live in the AerisVault monorepo alongside the existing libraries and apps. The current repository already contains the top-level structure for reusable libraries and user-facing applications.
 
-A recommended placement is:
+The placement is (per the [portal architecture decision](../superpowers/specs/2026-06-13-portal-architecture-design.md), 2026-06-13):
 
 ```text
 AerisVault/
 ├── libs/
 │   ├── dynaprocessing/
-│   └── aerocfd/
+│   └── aerocfd/                         ← computation library
 ├── apps/
-│   ├── aerisvault-ui/
-│   └── aerocfd-ui/
+│   └── aerisvault/                      ← single portal shell
+│       └── src/aerisvault/modules/
+│           ├── fsi/                     ← existing FSI module
+│           └── aerocfd/                 ← aerocfd UI as a module (not a standalone app)
 ```
 
-This keeps the aircraft CFD work aligned with the broader AerisVault architecture and makes it easier to reuse shared database, storage, and UI ideas later.
+The library `libs/aerocfd/` is independent and standalone. The aerocfd *UI* is a module inside the one portal shell, registered via a `ModuleDescriptor` — not a separate `apps/aerocfd-ui/` app. This keeps the aircraft CFD work aligned with the broader AerisVault portal architecture and shares the shell's navigation, while aerocfd keeps its own database (`data/aerocfd/aerocfd.db`).
 
 ## Core Domain Model
 

@@ -11,7 +11,9 @@
 
 This document is the v1 design for the planned `aerocfd` module of AerisVault — a structured engineering database and analysis environment for steady aircraft CFD polars produced by ANSYS Fluent. It is the result of a brainstorming session and consolidates eight design sections approved one by one by Stepan.
 
-The module follows the existing AerisVault philosophy: the analytical library (`libs/aerocfd/`) does all the computation; the Streamlit app (`apps/aerocfd-ui/`) is a thin shell that delegates to it.
+The module follows the existing AerisVault philosophy: the analytical library (`libs/aerocfd/`) does all the computation; the UI is a thin shell that delegates to it.
+
+> **Amendment (2026-06-13):** This spec originally placed the UI in a standalone `apps/aerocfd-ui/` app. The [portal architecture decision](2026-06-13-portal-architecture-design.md) supersedes that: aerocfd is now a **module inside the single `apps/aerisvault/` shell** (`apps/aerisvault/src/aerisvault/modules/aerocfd/`), not a separate Streamlit app. The library `libs/aerocfd/` is unaffected. All `apps/aerocfd-ui/` references below should be read as the aerocfd module within the shell. The separate-database decision still holds (aerocfd keeps `data/aerocfd/aerocfd.db`). The rotation sign convention was also corrected — see §7.2.
 
 For the engineering rationale (why raw loads, why fixed Fluent reports, why the Aircraft → OperatingCondition → AlphaCase hierarchy), see the work package. **This document focuses on the implementation decisions** — what to build, in what order, and who writes which parts.
 
@@ -46,6 +48,7 @@ Discussion is the default mode; autonomous code generation is not. Slow iteratio
 - File attachments (`StorageManager`, `raw/processed/`).
 - Tags and full-text search.
 - The separate `apps/simtracker-ui/` job-tracking app.
+- **Per-aircraft input-convention adapter.** A mapping from a data source's raw force/moment outputs into aerocfd's canonical body frame (x fwd, z up, y left, force-on-body), to support other solvers (CFX, OpenFOAM) or flipped-sign / z-down conventions. **Deliberately deferred** — v1 keeps one fixed canonical frame locked by the gold tests, because Stepan's current Fluent setup already *is* the canonical frame. When built, it must be a small set of **named conventions, each with its own test** — never free-form per-component sign toggles in the UI (those are a correctness footgun the gold-test discipline exists to prevent). The `CD(α=0)>0` gold test + negative-CD UI warning (§7.6) are the cheap interim guard. See [`project_aerocfd_convention_adapter`] in memory.
 
 ### 3.3 Out of v1, abandoned (not coming back unless reopened)
 
@@ -64,14 +67,18 @@ Discussion is the default mode; autonomous code generation is not. Slow iteratio
 ```
 AerisVault/
 ├── libs/
-│   ├── dynaprocessing/        ← unchanged
-│   └── aerocfd/               ← NEW (computation library)
+│   ├── dynaprocessing/                         ← unchanged
+│   └── aerocfd/                                ← NEW (computation library)
 ├── apps/
-│   ├── aerisvault-ui/         ← unchanged
-│   └── aerocfd-ui/            ← NEW (Streamlit app)
+│   └── aerisvault/                             ← the portal shell (renamed from aerisvault-ui)
+│       └── src/aerisvault/modules/
+│           ├── fsi/                            ← existing FSI module
+│           └── aerocfd/                        ← NEW (aerocfd module: pages, core, ui)
 └── data/
-    └── aerocfd/               ← NEW (database file from slice 2 on)
+    └── aerocfd/                                ← NEW (database file from slice 2 on)
 ```
+
+aerocfd's app side is a **module within the portal shell**, registered in `apps/aerisvault/src/aerisvault/portal/registry.py` via a `ModuleDescriptor`. From slice 2 its ORM/DB live in `modules/aerocfd/core/`. See the [portal architecture spec](2026-06-13-portal-architecture-design.md) for the module contract.
 
 ### 4.2 Two libraries side by side, never coupled
 
@@ -83,7 +90,7 @@ Current state: Stepan is the only user. Future expectation: other users may use 
 
 ### 4.4 Versioning
 
-The monorepo's single unified version is bumped uniformly on `aerocfd` releases per the existing rule in `CLAUDE.md`. New `pyproject.toml` files (`libs/aerocfd/pyproject.toml`, `apps/aerocfd-ui/pyproject.toml`) join the existing four in the version-bump checklist.
+The monorepo's single unified version is bumped uniformly on `aerocfd` releases per the existing rule in `CLAUDE.md`. Only one new `pyproject.toml` joins the version-bump checklist: `libs/aerocfd/pyproject.toml`. There is **no** `apps/aerocfd-ui/pyproject.toml` — aerocfd's UI is a module inside the existing `apps/aerisvault/` shell, which already has its own `pyproject.toml`.
 
 ### 4.5 Build order: vertical slice progression
 
@@ -236,19 +243,28 @@ SI throughout: meters, Newtons, Newton-metres, seconds, kilograms per cubic metr
 
 ### 7.2 Body → wind rotation
 
-`analysis/rotation.py`. Pure function, numpy throughout (works for scalar α or array α via broadcasting):
+`analysis/rotation.py`. Pure function, numpy throughout (works for scalar α or array α via broadcasting).
+
+**Sign convention (confirmed 2026-06-13).** Fluent reports the force *on the body* in the fixed body frame, x forward — so for a draggy body `Fx` is **negative** (drag points −X). Lift is +Z, pitching moment +(−Y) = nose-up. With drag defined along the relative wind and lift perpendicular (up), the correct transform is:
 
 ```python
 import numpy as np
 
 def body_to_wind(fx_n, fz_n, alpha_deg):
-    """Rotate body-frame total force to wind frame.
-    Returns (drag_n, lift_n)."""
+    """Rotate body-frame total force (force ON the body, x forward, z up)
+    to wind frame. Returns (drag_n, lift_n).
+
+    Fx is forward-positive, so the drag-producing axial force is negative;
+    that is why the Fx term in drag carries a minus sign. At alpha=0 this gives
+    drag = -Fx (positive for a draggy body) and lift = Fz.
+    """
     a = np.radians(alpha_deg)
-    drag_n =  fx_n * np.cos(a) + fz_n * np.sin(a)
-    lift_n = -fx_n * np.sin(a) + fz_n * np.cos(a)
+    drag_n = -fx_n * np.cos(a) + fz_n * np.sin(a)
+    lift_n =  fx_n * np.sin(a) + fz_n * np.cos(a)
     return drag_n, lift_n
 ```
+
+> The earlier draft had `drag = +Fx·cosα + Fz·sinα` / `lift = −Fx·sinα + Fz·cosα`, which implicitly assumed an aft-positive axial force. With Fluent's forward-positive `Fx`, both `Fx` terms flip sign (textbook `A = −Fx`). The old form produced negative drag at α=0 for the sample data — see [`project_aerocfd_fx_sign_open`] in memory.
 
 ### 7.3 Pitching-moment sign flip
 
@@ -289,13 +305,14 @@ Coefficients are **never summed** — each part's coefficient is normalized by t
 
 ### 7.6 The gold tests (the spine)
 
-Three tests in `tests/test_rotation.py` are the spine of the whole library. They must pass at all times after slice 1; if they ever fail without an intentional convention change, there is a real bug:
+Four tests are the spine of the whole library. They must pass at all times after slice 1; if they ever fail without an intentional convention change, there is a real bug:
 
-1. **Zero-α passthrough.** `body_to_wind(fx, fz, 0.0) == (fx, fz)`.
-2. **Pure vertical force at α = 10°.** `body_to_wind(0.0, 1000.0, 10.0)` returns `D = 1000·sin(10°)`, `L = 1000·cos(10°)`.
+1. **Zero-α drag/lift.** `body_to_wind(fx, fz, 0.0) == (-fx, fz)` — at α=0 drag is `-Fx` (positive for a draggy body) and lift is `Fz`. (This replaces the old "passthrough" assertion, which was only true under the wrong sign convention.)
+2. **Pure vertical force at α = 10°.** `body_to_wind(0.0, 1000.0, 10.0)` returns `D = 1000·sin(10°)`, `L = 1000·cos(10°)`. (Insensitive to the Fx-sign fix because Fx=0.)
 3. **Stable airfoil sign-flip.** Given a positive Fluent My (nose-down in this convention), `fluent_my_to_aero` returns negative; `dataset.cm()` for a stable-airfoil case returns negative Cm.
+4. **Positive drag at α=0 (`CD(α=0) > 0`).** For the sample draggy aircraft, `dataset.cd()` at α=0 is strictly positive. This is the invariant that would have caught the Fx-sign error — test #2 (Fx=0) cannot. In `tests/test_dataset.py`.
 
-Written in slice 1, never deleted.
+Written in slice 1, never deleted. The UI additionally shows a **non-blocking warning if any computed CD is negative** — a runtime echo of gold test #4 that catches a future bad input convention loudly (see [the deferred input-convention adapter](#32-out-of-v1-deferred-planned-not-abandoned)).
 
 ## 8. Database schema
 
@@ -498,8 +515,11 @@ Streamlit pages are **not unit-tested** in v1. Same approach `aerisvault-ui` alr
 **Library files (Claude):**
 - `viz/plot_utils.py` — five figure helpers
 
-**App files (Claude):**
-- `apps/aerocfd-ui/src/aerocfd_ui/app.py` — single page
+**App files (Claude):** aerocfd module inside the portal shell —
+- `apps/aerisvault/src/aerisvault/modules/aerocfd/__init__.py` — `ModuleDescriptor`
+- `apps/aerisvault/src/aerisvault/modules/aerocfd/pages/polar.py` — single page with `render()`
+- one line added to `apps/aerisvault/src/aerisvault/portal/registry.py` to register it
+- (prerequisite: the portal shell from the [portal+FSI migration](../plans/2026-06-13-portal-shell-fsi-migration.md) must exist first)
 
 **Tests written first (Stepan writes assertions; Claude writes fixtures on request):**
 - `test_polar.py`, `test_rotation.py` (the gold tests), `test_coefficients.py`, `test_dataset.py`
