@@ -73,8 +73,10 @@ _settings: Optional[AppSettings] = None
 
 
 def get_settings() -> AppSettings:
+    """Load FSI settings from data/fsi/config.json (created on first save)."""
     global _settings
     if _settings is None:
-        # Default location in monorepo apps/aerisvault-ui/
-        _settings = AppSettings.load()
+        from aerisvault.shared.paths import data_dir_for
+        config_path = str(data_dir_for("fsi") / "config.json")
+        _settings = AppSettings.load(config_path)
     return _settings
