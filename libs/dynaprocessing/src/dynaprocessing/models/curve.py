@@ -328,15 +328,19 @@ class Curve:
                 f"has {len(velocity_curve.values)} points. They must match."
             )
 
-        v_squared = velocity_curve.values ** 2
-        dynamic_pressure = 0.5 * rho * v_squared
+        velocity_values = velocity_curve.values
+        near_zero = np.abs(velocity_values) <= 0.1
+        dynamic_pressure = 0.5 * rho * velocity_values ** 2
 
-        # Avoid division by zero: set CdS to NaN where velocity is near zero
-        cds_values = np.where(
-            np.abs(velocity_curve.values) > 0.1,
-            self._values / dynamic_pressure,
-            np.nan,
-        )
+        # CdS is physically undefined when the payload is nearly stationary.
+        # Suppress the divide-by-zero from the masked-out elements; np.where
+        # discards them anyway, but it still evaluates the division eagerly.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            cds_values = np.where(
+                near_zero,
+                np.nan,
+                self._values / dynamic_pressure,
+            )
 
         return self._derive(
             cds_values,

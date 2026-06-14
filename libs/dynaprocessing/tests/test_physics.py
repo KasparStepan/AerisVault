@@ -122,6 +122,22 @@ class TestCalculateCdSFromVelocity:
         cds = force_curve.calculate_cds_from_velocity(velocity_curve)
         assert cds.units == "m^2"
 
+    def test_no_divide_by_zero_warning(self, force_curve):
+        """Velocity reaching zero must not emit a RuntimeWarning."""
+        import warnings
+
+        t = np.linspace(0, 1, 100)
+        v_to_zero = np.linspace(10, 0, 100)
+        vel = Curve(time=t, values=v_to_zero, name="v")
+
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            cds = force_curve.calculate_cds_from_velocity(vel)
+
+        runtime_warnings = [w for w in caught if issubclass(w.category, RuntimeWarning)]
+        assert not runtime_warnings, f"unexpected RuntimeWarning(s): {[str(w.message) for w in runtime_warnings]}"
+        assert np.isnan(cds.values[-1])
+
 
 class TestResultant:
     """Tests for Curve.resultant() — magnitude of component vectors."""
