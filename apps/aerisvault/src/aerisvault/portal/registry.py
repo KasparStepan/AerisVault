@@ -5,6 +5,6 @@ append it here.
 """
 
 from aerisvault.modules.fsi import MODULE as fsi
-# from aerisvault.modules.aerocfd import MODULE as aerocfd   # added when aerocfd lands
+from aerisvault.modules.aerocfd import MODULE as aerocfd
 
-MODULES = [fsi]
+MODULES = [fsi, aerocfd]

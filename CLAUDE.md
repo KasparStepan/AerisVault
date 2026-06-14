@@ -52,10 +52,11 @@ cd apps/aerisvault
 
 ## Versioning
 
-The entire monorepo uses a **single unified version**. When bumping the version, update ALL four `pyproject.toml` files to the same value:
+The entire monorepo uses a **single unified version**. When bumping the version, update ALL five `pyproject.toml` files to the same value:
 - `pyproject.toml` (root)
 - `libs/dynaprocessing/pyproject.toml`
 - `libs/dynaprep/pyproject.toml`
+- `libs/aerocfd/pyproject.toml`
 - `apps/aerisvault/pyproject.toml`
 
 ## Architecture
@@ -150,3 +151,27 @@ Key design decisions:
 - `libs/dynaprep/` is an empty stub — out of scope, future project.
 - No report generation or data export features.
 - `apps/aerisvault-old/` is the legacy monolithic app — reference only, do not modify.
+
+## aerocfd module (in active development — slice 1 shipped)
+
+`libs/aerocfd/` is an analytical library for aircraft CFD post-processing (Fluent steady polars). It is independent of `dynaprocessing` — neither imports the other. The aerocfd UI is a **module inside the `apps/aerisvault/` portal shell** (`apps/aerisvault/src/aerisvault/modules/aerocfd/`), registered via a `ModuleDescriptor` (the "Aircraft CFD" tool card) — not a standalone app. It delegates all computation to the library. Slice 1 is a single in-memory page (no DB yet); slices 2–5 add persistence, parts/groups, the Cm dual path, and comparison.
+
+**Working model.** Claude implements the whole module — library math, scaffolding, pages, and tests. The original aerocfd design framed this as a learning project with a per-module write/review split between Stepan and Claude; **that learning aspect has been dropped** (Stepan does not have time to hand-write the code), so the older spec/plan language about Stepan-owned vs Claude-owned tasks is historical and no longer in force. The engineering conventions below — especially the axis convention and the gold tests — still govern correctness regardless of who writes the code.
+
+**Axis convention (load-bearing — do not "fix" without asking).** Body frame: x = forward, z = up, right-handed → y points to the LEFT. α positive = nose up. Fluent reports the force ON the body in this fixed frame regardless of α — monitors are never redefined per case. `Fx` is forward-positive, so a draggy body has `Fx < 0` (drag points −X); lift is +Z; nose-up moment is −Y. The library does the body→wind rotation `body_to_wind` (`D = −Fx·cosα + Fz·sinα`, `L = Fx·sinα + Fz·cosα`) and the My sign flip (`fluent_my_to_aero`, because Fluent's right-hand-rule My about +Y is nose-DOWN while aerospace Cm is nose-UP). Four **gold tests** (`tests/test_rotation.py` and `tests/test_dataset.py`) enforce this — including `CD(α=0) > 0`, the one that catches an Fx-sign error. If they ever fail without an intentional convention change, there is a real bug. The page shows a non-blocking warning if any computed CD is negative — a runtime echo of that gold test.
+
+**Group summation rule (slice 3+).** Rotate first, sum later: rotate each part's body-frame loads to wind frame, then sum. Coefficients are NEVER summed — only forces; each part's CL contribution is `part_lift / (q∞ · S_ref)`.
+
+**Library is ORM-free.** `libs/aerocfd/` never imports SQLAlchemy. From slice 2, ORM models live in `apps/aerisvault/src/aerisvault/modules/aerocfd/core/` with mapper functions translating to/from the library's frozen dataclasses.
+
+**Common commands:**
+```bash
+# Run aerocfd library tests
+cd libs/aerocfd
+/home/kaspar/Projects/PhD/AerisVault/.venv/bin/python -m pytest tests/ -v
+
+# Install the aerocfd library editable (the aerisvault shell is already installed)
+/home/kaspar/Projects/PhD/AerisVault/.venv/bin/pip install -e libs/aerocfd
+```
+
+Full design: `docs/superpowers/specs/2026-05-10-aerocfd-design.md`. Slice-1 plan: `docs/superpowers/plans/2026-05-10-aerocfd-slice1.md`.
