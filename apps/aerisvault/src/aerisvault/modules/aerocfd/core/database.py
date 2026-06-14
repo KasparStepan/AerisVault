@@ -14,8 +14,11 @@ from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from aerisvault.modules.aerocfd.core.models import (
     AircraftORM, AircraftPartORM, AlphaCaseORM, AlphaCasePartLoadORM,
-    Base, OperatingConditionORM,
+    AlphaCasePartLoadMomentORM, Base, MomentReferencePointORM, OperatingConditionORM,
 )
+
+# Moment reference points every new aircraft starts with (editable afterwards).
+DEFAULT_MOMENT_REFERENCE_LABELS = ["20% MAC", "25% MAC", "30% MAC"]
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,11 @@ class AeroCfdDatabase:
                 name=name, s_ref_m2=s_ref_m2, c_ref_m=c_ref_m, b_ref_m=b_ref_m,
                 description=description, axis_convention=axis_convention,
             )
+            # Seed the standard moment reference points; the user can edit them.
+            aircraft.moment_reference_points = [
+                MomentReferencePointORM(label=label, display_order=order)
+                for order, label in enumerate(DEFAULT_MOMENT_REFERENCE_LABELS)
+            ]
             session.add(aircraft)
             session.commit()
             session.refresh(aircraft)
@@ -55,6 +63,7 @@ class AeroCfdDatabase:
                 .options(
                     selectinload(AircraftORM.operating_conditions),
                     selectinload(AircraftORM.parts),
+                    selectinload(AircraftORM.moment_reference_points),
                 )
             )
             return list(session.scalars(stmt).all())
@@ -67,6 +76,7 @@ class AeroCfdDatabase:
                 .options(
                     selectinload(AircraftORM.operating_conditions),
                     selectinload(AircraftORM.parts),
+                    selectinload(AircraftORM.moment_reference_points),
                 )
             )
             return session.scalar(stmt)
@@ -131,6 +141,44 @@ class AeroCfdDatabase:
             session.commit()
             return True
 
+    # --- Moment reference points ---
+
+    def list_reference_points(self, aircraft_id: int) -> List[MomentReferencePointORM]:
+        with self.get_session() as session:
+            stmt = (
+                select(MomentReferencePointORM)
+                .where(MomentReferencePointORM.aircraft_id == aircraft_id)
+                .order_by(MomentReferencePointORM.display_order, MomentReferencePointORM.id)
+            )
+            return list(session.scalars(stmt).all())
+
+    def add_reference_point(self, aircraft_id: int, label: str) -> MomentReferencePointORM:
+        with self.get_session() as session:
+            order = len(self.list_reference_points(aircraft_id))
+            ref = MomentReferencePointORM(aircraft_id=aircraft_id, label=label, display_order=order)
+            session.add(ref)
+            session.commit()
+            session.refresh(ref)
+            return ref
+
+    def update_reference_point(self, reference_point_id: int, label: str) -> bool:
+        with self.get_session() as session:
+            ref = session.get(MomentReferencePointORM, reference_point_id)
+            if not ref:
+                return False
+            ref.label = label
+            session.commit()
+            return True
+
+    def delete_reference_point(self, reference_point_id: int) -> bool:
+        with self.get_session() as session:
+            ref = session.get(MomentReferencePointORM, reference_point_id)
+            if not ref:
+                return False
+            session.delete(ref)
+            session.commit()
+            return True
+
     # --- Operating conditions ---
 
     def create_operating_condition(
@@ -185,7 +233,12 @@ class AeroCfdDatabase:
                 select(AlphaCaseORM)
                 .where(AlphaCaseORM.operating_condition_id == oc_id)
                 .order_by(AlphaCaseORM.alpha_deg)
-                .options(selectinload(AlphaCaseORM.part_loads).selectinload(AlphaCasePartLoadORM.part))
+                .options(
+                    selectinload(AlphaCaseORM.part_loads).selectinload(AlphaCasePartLoadORM.part),
+                    selectinload(AlphaCaseORM.part_loads)
+                    .selectinload(AlphaCasePartLoadORM.moments)
+                    .selectinload(AlphaCasePartLoadMomentORM.reference_point),
+                )
             )
             return list(session.scalars(stmt).all())
 
@@ -197,7 +250,12 @@ class AeroCfdDatabase:
                     AlphaCaseORM.operating_condition_id == oc_id,
                     AlphaCaseORM.alpha_deg == alpha_deg,
                 )
-                .options(selectinload(AlphaCaseORM.part_loads).selectinload(AlphaCasePartLoadORM.part))
+                .options(
+                    selectinload(AlphaCaseORM.part_loads).selectinload(AlphaCasePartLoadORM.part),
+                    selectinload(AlphaCaseORM.part_loads)
+                    .selectinload(AlphaCasePartLoadORM.moments)
+                    .selectinload(AlphaCasePartLoadMomentORM.reference_point),
+                )
             )
             return session.scalar(stmt)
 
@@ -207,8 +265,9 @@ class AeroCfdDatabase:
     ) -> AlphaCaseORM:
         """Create or replace the α case at (oc_id, alpha_deg) with the given part loads.
 
-        Each entry in part_loads is a dict: {part_id, fx_n, fz_n, my_nm}. An existing
-        case at the same α is wiped and rebuilt, so saving is idempotent.
+        Each entry in part_loads is a dict: {part_id, fx_n, fz_n, moments}, where
+        moments maps reference_point_id -> my_nm. An existing case at the same α is
+        wiped and rebuilt, so saving is idempotent.
         """
         with self.get_session() as session:
             case = session.scalar(
@@ -221,18 +280,23 @@ class AeroCfdDatabase:
                 case = AlphaCaseORM(operating_condition_id=oc_id, alpha_deg=alpha_deg)
                 session.add(case)
             case.convergence_status = convergence_status
-            # Replace the case's loads wholesale.
+            # Replace the case's loads wholesale (cascade removes their moments).
             for existing in list(case.part_loads):
                 session.delete(existing)
             session.flush()
             for entry in part_loads:
-                session.add(AlphaCasePartLoadORM(
+                load = AlphaCasePartLoadORM(
                     alpha_case_id=case.id,
                     part_id=entry["part_id"],
                     fx_n=entry.get("fx_n", 0.0),
                     fz_n=entry.get("fz_n", 0.0),
                     my_nm=entry.get("my_nm", 0.0),
-                ))
+                )
+                load.moments = [
+                    AlphaCasePartLoadMomentORM(reference_point_id=ref_id, my_nm=value)
+                    for ref_id, value in entry.get("moments", {}).items()
+                ]
+                session.add(load)
             session.commit()
             session.refresh(case)
             return case

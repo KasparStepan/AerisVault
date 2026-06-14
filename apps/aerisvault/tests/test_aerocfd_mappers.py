@@ -7,7 +7,7 @@ from aerocfd.models.operating_condition import OperatingCondition
 
 from aerisvault.modules.aerocfd.core.models import (
     AircraftORM, AircraftPartORM, AlphaCaseORM, AlphaCasePartLoadORM,
-    OperatingConditionORM,
+    AlphaCasePartLoadMomentORM, MomentReferencePointORM, OperatingConditionORM,
 )
 from aerisvault.modules.aerocfd.core.mappers import (
     aircraft_to_dataclass, alpha_case_to_dataclass, build_dataset,
@@ -51,6 +51,21 @@ def test_alpha_case_maps_part_loads_with_group():
     # totals are summed from the parts
     assert dc.total_fz_n == 800.0
     assert dc.total_fx_n == -20.0
+
+
+def test_alpha_case_maps_per_reference_moments():
+    ref20 = MomentReferencePointORM(label="20% MAC")
+    ref25 = MomentReferencePointORM(label="25% MAC")
+    part = AircraftPartORM(name="wing", group_name="Wing")
+    load = AlphaCasePartLoadORM(fx_n=-10.0, fz_n=800.0, part=part, moments=[
+        AlphaCasePartLoadMomentORM(my_nm=5.0, reference_point=ref20),
+        AlphaCasePartLoadMomentORM(my_nm=4.0, reference_point=ref25),
+    ])
+    case = AlphaCaseORM(alpha_deg=5.0, part_loads=[load])
+    dc = alpha_case_to_dataclass(case)
+    moment_load = dc.part_loads[0]
+    assert moment_load.moment_for("20% MAC") == 5.0
+    assert moment_load.moment_for("25% MAC") == 4.0
 
 
 def test_build_dataset_groups_sum_to_total():

@@ -51,6 +51,9 @@ def alpha_case_to_dataclass(orm: AlphaCaseORM) -> AlphaCase:
             fx_n=load.fx_n,
             fz_n=load.fz_n,
             my_nm=load.my_nm,
+            moments=tuple(
+                (moment.reference_point.label, moment.my_nm) for moment in load.moments
+            ),
         )
         for load in orm.part_loads
     )

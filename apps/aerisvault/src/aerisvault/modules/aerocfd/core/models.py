@@ -41,9 +41,36 @@ class AircraftORM(Base):
     parts: Mapped[List["AircraftPartORM"]] = relationship(
         back_populates="aircraft", cascade="all, delete-orphan"
     )
+    moment_reference_points: Mapped[List["MomentReferencePointORM"]] = relationship(
+        back_populates="aircraft", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"AircraftORM(id={self.id}, name='{self.name}')"
+
+
+class MomentReferencePointORM(Base):
+    """A pitching-moment reference position for an aircraft, e.g. '25% MAC'.
+
+    Per-part moments are entered at each of these points (Cm at different CG
+    locations). Labels only — the position is documented in the label.
+    """
+    __tablename__ = "moment_reference_point"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    aircraft_id: Mapped[int] = mapped_column(
+        ForeignKey("aircraft.id", ondelete="CASCADE"), nullable=False
+    )
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    aircraft: Mapped["AircraftORM"] = relationship(back_populates="moment_reference_points")
+    moments: Mapped[List["AlphaCasePartLoadMomentORM"]] = relationship(
+        back_populates="reference_point", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:
+        return f"MomentReferencePointORM(id={self.id}, label='{self.label}')"
 
 
 class AircraftPartORM(Base):
@@ -145,6 +172,32 @@ class AlphaCasePartLoadORM(Base):
 
     alpha_case: Mapped["AlphaCaseORM"] = relationship(back_populates="part_loads")
     part: Mapped["AircraftPartORM"] = relationship(back_populates="part_loads")
+    moments: Mapped[List["AlphaCasePartLoadMomentORM"]] = relationship(
+        back_populates="part_load", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"AlphaCasePartLoadORM(case={self.alpha_case_id}, part={self.part_id})"
+
+
+class AlphaCasePartLoadMomentORM(Base):
+    """One part's pitching moment at one reference point, for one α case."""
+    __tablename__ = "alpha_case_part_load_moment"
+    __table_args__ = (
+        UniqueConstraint("part_load_id", "reference_point_id", name="uq_load_ref"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    part_load_id: Mapped[int] = mapped_column(
+        ForeignKey("alpha_case_part_load.id", ondelete="CASCADE"), nullable=False
+    )
+    reference_point_id: Mapped[int] = mapped_column(
+        ForeignKey("moment_reference_point.id", ondelete="CASCADE"), nullable=False
+    )
+    my_nm: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
+    part_load: Mapped["AlphaCasePartLoadORM"] = relationship(back_populates="moments")
+    reference_point: Mapped["MomentReferencePointORM"] = relationship(back_populates="moments")
+
+    def __repr__(self) -> str:
+        return f"AlphaCasePartLoadMomentORM(load={self.part_load_id}, ref={self.reference_point_id})"
