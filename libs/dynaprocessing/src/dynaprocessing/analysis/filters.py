@@ -32,10 +32,15 @@ def get_sampling_frequency(time_array: np.ndarray) -> float:
             "Time array must have at least 2 points to determine "
             "sampling frequency."
         )
-    dt_mean = float(np.mean(np.diff(time_array)))
-    if dt_mean <= 0:
+    # Use the median of the positive time steps: robust to occasional
+    # duplicate or reset timestamps (e.g. from LS-DYNA restarts), which would
+    # otherwise skew a simple mean.
+    diffs = np.diff(time_array)
+    positive_steps = diffs[diffs > 0]
+    if positive_steps.size == 0:
         raise ValueError("Time array must be monotonically increasing.")
-    return 1.0 / dt_mean
+    dt_median = float(np.median(positive_steps))
+    return 1.0 / dt_median
 
 
 def apply_cfc_filter(

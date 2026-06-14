@@ -29,6 +29,20 @@ class TestSamplingFrequency:
         with pytest.raises(ValueError, match="monotonically increasing"):
             get_sampling_frequency(np.array([1.0, 0.0]))
 
+    def test_robust_to_duplicate_timestamp_block(self):
+        # Uniform 1000 Hz, but a restart duplicates one stamp 50 times (dt=0).
+        # The mean dt is skewed low by the extra zero-gaps (fs ~1050); the
+        # median of the positive steps stays at the true 1000 Hz.
+        t = list(np.linspace(0, 1, 1001))  # true dt = 0.001 → 1000 Hz
+        for _ in range(50):
+            t.insert(500, t[500])
+        fs = get_sampling_frequency(np.array(t))
+        assert pytest.approx(fs, rel=1e-2) == 1000.0
+
+    def test_rejects_all_nonincreasing(self):
+        with pytest.raises(ValueError, match="monotonically increasing"):
+            get_sampling_frequency(np.array([5.0, 5.0, 5.0]))
+
 
 # ---------------------------------------------------------------------------
 # CFC filter
