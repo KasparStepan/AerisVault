@@ -94,11 +94,11 @@ def render():
                 )
 
             plot_col_a, plot_col_b = st.columns(2)
-            plot_col_a.plotly_chart(cl_alpha_figure(dataset.cl()), use_container_width=True)
-            plot_col_b.plotly_chart(cd_alpha_figure(cd_polar), use_container_width=True)
+            plot_col_a.plotly_chart(cl_alpha_figure(dataset.cl()), width="content")
+            plot_col_b.plotly_chart(cd_alpha_figure(cd_polar), width="content")
 
             plot_col_c, plot_col_d = st.columns(2)
-            plot_col_c.plotly_chart(lift_to_drag_alpha_figure(dataset.lift_to_drag()), use_container_width=True)
-            plot_col_d.plotly_chart(drag_polar_figure(dataset.cl(), cd_polar), use_container_width=True)
+            plot_col_c.plotly_chart(lift_to_drag_alpha_figure(dataset.lift_to_drag()), width="content")
+            plot_col_d.plotly_chart(drag_polar_figure(dataset.cl(), cd_polar), width="content")
 
-            st.plotly_chart(cm_alpha_figure(dataset.cm()), use_container_width=True)
+            st.plotly_chart(cm_alpha_figure(dataset.cm()), width="content")

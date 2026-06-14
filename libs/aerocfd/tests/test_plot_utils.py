@@ -47,3 +47,15 @@ class TestFigureHelpers:
         cm = Polar(cl_polar.alpha_deg, np.array([0.05, 0.0, -0.05, -0.1]),
                    name="Cm", units="-")
         assert isinstance(cm_alpha_figure(cm), go.Figure)
+
+
+class TestAspectRatio:
+    """Aerodynamic convention: figures are tall, height = 2 × width (1:2)."""
+
+    def test_alpha_figures_are_1to2(self, cl_polar, cd_polar):
+        for fig in (cl_alpha_figure(cl_polar), cd_alpha_figure(cd_polar)):
+            assert fig.layout.height == pytest.approx(2 * fig.layout.width)
+
+    def test_drag_polar_is_1to2(self, cl_polar, cd_polar):
+        fig = drag_polar_figure(cl_polar, cd_polar)
+        assert fig.layout.height == pytest.approx(2 * fig.layout.width)
