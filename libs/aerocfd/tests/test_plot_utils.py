@@ -50,12 +50,19 @@ class TestFigureHelpers:
 
 
 class TestAspectRatio:
-    """Aerodynamic convention: figures are tall, height = 2 × width (1:2)."""
+    """Coefficient-vs-α curves (CL, CD, Cm) are tall 1:2; L/D and the drag polar
+    are square 1:1."""
 
-    def test_alpha_figures_are_1to2(self, cl_polar, cd_polar):
-        for fig in (cl_alpha_figure(cl_polar), cd_alpha_figure(cd_polar)):
+    def test_coefficient_curves_are_1to2(self, cl_polar, cd_polar):
+        cm = Polar(cl_polar.alpha_deg, np.array([0.05, 0.0, -0.05, -0.1]), name="Cm", units="-")
+        for fig in (cl_alpha_figure(cl_polar), cd_alpha_figure(cd_polar), cm_alpha_figure(cm)):
             assert fig.layout.height == pytest.approx(2 * fig.layout.width)
 
-    def test_drag_polar_is_1to2(self, cl_polar, cd_polar):
+    def test_efficiency_is_square(self, cl_polar):
+        ld = Polar(cl_polar.alpha_deg, np.array([0.0, 5.0, 12.0, 10.0]), name="L/D", units="-")
+        fig = lift_to_drag_alpha_figure(ld)
+        assert fig.layout.height == pytest.approx(fig.layout.width)
+
+    def test_drag_polar_is_square(self, cl_polar, cd_polar):
         fig = drag_polar_figure(cl_polar, cd_polar)
-        assert fig.layout.height == pytest.approx(2 * fig.layout.width)
+        assert fig.layout.height == pytest.approx(fig.layout.width)

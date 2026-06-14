@@ -93,12 +93,13 @@ def render():
                     "drag = -X). This usually means the input sign convention is off."
                 )
 
-            plot_col_a, plot_col_b = st.columns(2)
-            plot_col_a.plotly_chart(cl_alpha_figure(dataset.cl()), width="content")
-            plot_col_b.plotly_chart(cd_alpha_figure(cd_polar), width="content")
+            # Lift, drag, and moment coefficient curves — three tall (1:2) plots side by side.
+            lift_col, drag_col, moment_col = st.columns(3)
+            lift_col.plotly_chart(cl_alpha_figure(dataset.cl()), width="content")
+            drag_col.plotly_chart(cd_alpha_figure(cd_polar), width="content")
+            moment_col.plotly_chart(cm_alpha_figure(dataset.cm()), width="content")
 
-            plot_col_c, plot_col_d = st.columns(2)
-            plot_col_c.plotly_chart(lift_to_drag_alpha_figure(dataset.lift_to_drag()), width="content")
-            plot_col_d.plotly_chart(drag_polar_figure(dataset.cl(), cd_polar), width="content")
-
-            st.plotly_chart(cm_alpha_figure(dataset.cm()), width="content")
+            # Efficiency and the aerodynamic (drag) polar — square (1:1) plots.
+            efficiency_col, polar_col = st.columns(2)
+            efficiency_col.plotly_chart(lift_to_drag_alpha_figure(dataset.lift_to_drag()), width="content")
+            polar_col.plotly_chart(drag_polar_figure(dataset.cl(), cd_polar), width="content")
