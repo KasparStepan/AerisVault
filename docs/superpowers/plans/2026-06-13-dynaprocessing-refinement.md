@@ -10,6 +10,11 @@
 
 **Reference:** review findings in this session (P1/P2/P3 priority table).
 
+> **✅ STATUS: COMPLETED (2026-06-14).** All 8 tasks executed on branch `dynaprocessing-refinement` (merged to `main`), TDD throughout, 139 tests passing (was 126; +13). Two deviations from the plan as written, both intentional and reflected below:
+> - **Task 5 version:** the four pyprojects were already aligned at `0.1.0` (the only mismatch was a hardcoded `v0.3.0` banner in `app.py`), so the bump was to **`0.2.0`** (honest next-minor) rather than the plan's arbitrary `0.4.0`; the banner was fixed too.
+> - **Task 8 test:** a single duplicate timestamp did not skew the mean enough to fail, so the test was strengthened to a 50-stamp duplicate block (`test_robust_to_duplicate_timestamp_block`) that genuinely discriminates median-vs-mean.
+> - **Task 4 lazy-import guard** already passed (the package `__init__` never imported viz); matplotlib was still made lazy inside `viz` and the guard kept as a regression test.
+
 **Environment:** all commands use the project venv and run from the library root:
 ```
 cd /home/stepan/projects/PhD/AerisVault/libs/dynaprocessing
@@ -398,26 +403,26 @@ In `to_parquet`, remove the local `from pathlib import Path as _Path` line and c
 Run: `cd libs/dynaprocessing && /home/stepan/projects/PhD/AerisVault/.venv/bin/python -m pytest tests/ -q`
 Expected: all pass.
 
-- [ ] **Step 3: Reconcile the version to 0.4.0 across all four pyprojects**
+- [ ] **Step 3: Reconcile the version to 0.2.0 across all four pyprojects**
 
 Inspect each file's version:
 ```bash
 cd /home/stepan/projects/PhD/AerisVault
 grep -H "version" pyproject.toml libs/dynaprocessing/pyproject.toml libs/dynaprep/pyproject.toml apps/aerisvault-ui/pyproject.toml
 ```
-Set the `version = "..."` line in all four to `version = "0.4.0"`. (If the FSI-migration rename has already run, the app path is `apps/aerisvault/pyproject.toml` — adjust accordingly.)
+Set the `version = "..."` line in all four to `version = "0.2.0"` (they were already aligned at `0.1.0`, so this is a normal next-minor bump marking the refactor). Also fix the hardcoded `v0.3.0` banner in `apps/aerisvault-ui/src/aerisvault/app.py`. (If the FSI-migration rename has already run, the app path is `apps/aerisvault/pyproject.toml` — adjust accordingly.)
 
 - [ ] **Step 4: Reinstall and confirm**
 
 Run: `/home/stepan/projects/PhD/AerisVault/.venv/bin/pip install -e libs/dynaprocessing`
-Expected: `Successfully installed dynaprocessing-0.4.0`.
+Expected: `Successfully installed dynaprocessing-0.2.0`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/dynaprocessing/models/curve.py
 git add pyproject.toml libs/dynaprocessing/pyproject.toml libs/dynaprep/pyproject.toml apps/aerisvault-ui/pyproject.toml
-git commit -m "chore: import Path at module top; unify monorepo version to 0.4.0"
+git commit -m "chore: import Path at module top; unify monorepo version to 0.2.0"
 ```
 
 ---
@@ -678,10 +683,15 @@ LS-DYNA restarts can repeat or reset timestamps. `get_sampling_frequency` uses t
 Add to `tests/test_filters.py` inside `class TestSamplingFrequency`:
 
 ```python
-    def test_robust_to_occasional_duplicate_timestamp(self):
-        # Uniform 1000 Hz except one duplicated stamp partway through.
-        t = list(np.linspace(0, 1, 1001))
-        t.insert(500, t[500])  # duplicate one timestamp (dt = 0 there)
+    def test_robust_to_duplicate_timestamp_block(self):
+        # Uniform 1000 Hz, but a restart duplicates one stamp 50 times (dt=0).
+        # The mean dt is skewed low by the extra zero-gaps (fs ~1050); the
+        # median of the positive steps stays at the true 1000 Hz.
+        # NOTE: a *single* duplicate does not skew the mean enough to fail, so
+        # the test uses a block of 50 to genuinely discriminate median vs mean.
+        t = list(np.linspace(0, 1, 1001))  # true dt = 0.001 → 1000 Hz
+        for _ in range(50):
+            t.insert(500, t[500])
         fs = get_sampling_frequency(np.array(t))
         assert pytest.approx(fs, rel=1e-2) == 1000.0
 
@@ -693,7 +703,7 @@ Add to `tests/test_filters.py` inside `class TestSamplingFrequency`:
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `/home/stepan/projects/PhD/AerisVault/.venv/bin/python -m pytest "tests/test_filters.py::TestSamplingFrequency" -v`
-Expected: `test_robust_to_occasional_duplicate_timestamp` FAILS (mean dt skewed by the zero step) or the new reject test behaves differently.
+Expected: `test_robust_to_duplicate_timestamp_block` FAILS (mean-based fs ≈ 1050, off by ~5%); the `test_rejects_all_nonincreasing` test already passes.
 
 - [ ] **Step 3: Make `get_sampling_frequency` use the median positive step**
 

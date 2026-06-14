@@ -75,7 +75,7 @@
 ```toml
 [project]
 name = "aerocfd"
-version = "0.1.0"
+version = "0.2.0"  # match the current unified monorepo version at build time
 description = "Aircraft CFD post-processing library for AerisVault"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -120,7 +120,7 @@ The `aerisvault` shell is already installed (from the portal+FSI migration). Onl
 /home/stepan/projects/PhD/AerisVault/.venv/bin/pip install -e libs/aerocfd
 ```
 
-Expected: finishes with `Successfully installed aerocfd-0.1.0`.
+Expected: finishes with `Successfully installed aerocfd-0.2.0` (or whatever the current unified version is).
 
 - [ ] **Step 5: Smoke import**
 
