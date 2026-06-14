@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from aerisvault.core.models import Base, File, FileType, Simulation, Tag, simulation_tags
+from aerisvault.modules.fsi.core.models import Base, File, FileType, Simulation, Tag, simulation_tags
 
 
 @pytest.fixture

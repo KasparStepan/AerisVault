@@ -1,7 +1,7 @@
 [project]
-name = "aerisvault-ui"
+name = "aerisvault"
 version = "0.2.0"
-description = "Thin UI shell for AerisVault simulation post-processing"
+description = "AerisVault portal shell hosting engineering simulation tools as modules"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
