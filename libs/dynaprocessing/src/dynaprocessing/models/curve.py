@@ -474,6 +474,57 @@ class Curve:
         return out
 
     # ------------------------------------------------------------------
+    # Import (classmethods)
+    # ------------------------------------------------------------------
+    @classmethod
+    def from_dataframe(
+        cls,
+        df: pd.DataFrame,
+        *,
+        time_column: str = "time",
+        value_column: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Curve:
+        """Build a Curve from a two-column DataFrame.
+
+        Args:
+            df: Source DataFrame containing a time column and one value column.
+            time_column: Name of the time column (default 'time').
+            value_column: Name of the value column. If None, inferred as the
+                single non-time column; raises if that is ambiguous.
+            **kwargs: Extra Curve fields (units, node_id, metadata, ...).
+
+        Raises:
+            ValueError: If value_column is omitted and the DataFrame does not
+                have exactly one non-time column.
+        """
+        if value_column is None:
+            candidates = [c for c in df.columns if c != time_column]
+            if len(candidates) != 1:
+                raise ValueError(
+                    f"Cannot infer value_column from columns {list(df.columns)}; "
+                    f"pass value_column explicitly."
+                )
+            value_column = candidates[0]
+
+        return cls(
+            time=df[time_column].to_numpy(dtype=float),
+            values=df[value_column].to_numpy(dtype=float),
+            name=value_column,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_parquet(
+        cls,
+        filepath: str | Path,
+        **kwargs: Any,
+    ) -> Curve:
+        """Load a Curve from a Parquet file written by ``to_parquet``."""
+        df = pd.read_parquet(filepath)
+        return cls.from_dataframe(df, **kwargs)
+
+    # ------------------------------------------------------------------
     # Dunder methods
     # ------------------------------------------------------------------
     def __len__(self) -> int:

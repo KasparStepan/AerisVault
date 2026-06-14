@@ -229,3 +229,39 @@ class TestRepr:
         filtered = simple_curve.apply_cfc_filter(60)
         r = repr(filtered)
         assert "CFC-60" in r
+
+
+# ---------------------------------------------------------------------------
+# Round-trip (DataFrame / Parquet)
+# ---------------------------------------------------------------------------
+
+class TestCurveRoundTrip:
+    def test_from_dataframe_single_value_column(self):
+        import pandas as pd
+        df = pd.DataFrame({"time": [0.0, 0.1, 0.2], "Fpz": [3.0, 3.1, 3.2]})
+        curve = Curve.from_dataframe(df)
+        assert curve.name == "Fpz"
+        np.testing.assert_array_equal(curve.time, [0.0, 0.1, 0.2])
+        np.testing.assert_array_equal(curve.values, [3.0, 3.1, 3.2])
+
+    def test_from_dataframe_explicit_value_column(self):
+        import pandas as pd
+        df = pd.DataFrame({"t": [0.0, 1.0], "a": [9.0, 8.0], "b": [1.0, 2.0]})
+        curve = Curve.from_dataframe(df, time_column="t", value_column="b")
+        assert curve.name == "b"
+        np.testing.assert_array_equal(curve.values, [1.0, 2.0])
+
+    def test_from_dataframe_ambiguous_raises(self):
+        import pandas as pd
+        df = pd.DataFrame({"time": [0.0], "a": [1.0], "b": [2.0]})
+        with pytest.raises(ValueError, match="value_column"):
+            Curve.from_dataframe(df)
+
+    def test_parquet_round_trip(self, tmp_path):
+        t = np.linspace(0, 1, 50)
+        original = Curve(time=t, values=np.sin(t), name="Fpz", units="N")
+        path = original.to_parquet(tmp_path / "fpz.parquet")
+        restored = Curve.from_parquet(path)
+        assert restored.name == "Fpz"
+        np.testing.assert_allclose(restored.time, original.time)
+        np.testing.assert_allclose(restored.values, original.values)
