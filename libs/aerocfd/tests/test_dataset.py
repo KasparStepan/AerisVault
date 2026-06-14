@@ -2,8 +2,10 @@ import numpy as np
 import pytest
 
 from aerocfd.models.aircraft import Aircraft
+from aerocfd.models.alpha_case import AlphaCase
 from aerocfd.models.operating_condition import OperatingCondition
 from aerocfd.models.dataset import AeroDataset
+from aerocfd.models.part_load import PartLoad
 from aerocfd.models.polar import Polar
 
 
@@ -74,3 +76,47 @@ class TestPositiveDragGoldStandard:
             f"CD(α=0) = {cd_polar.values[idx]} must be > 0. A non-positive value "
             "means the body→wind Fx sign is wrong."
         )
+
+
+@pytest.fixture
+def parted_dataset(reference_aircraft_kwargs, reference_operating_condition_kwargs):
+    """A two-group dataset (Wing + Tail) for testing per-group decomposition."""
+    aircraft = Aircraft(**reference_aircraft_kwargs)
+    oc = OperatingCondition(**reference_operating_condition_kwargs)
+    cases = []
+    for alpha in [0.0, 5.0, 10.0]:
+        parts = [
+            PartLoad("wing", "Wing", fx_n=-10.0, fz_n=100.0 * alpha + 200.0, my_nm=5.0 * alpha),
+            PartLoad("tail", "Tail", fx_n=-2.0, fz_n=20.0, my_nm=-3.0 * alpha),
+        ]
+        cases.append(AlphaCase(alpha_deg=alpha, part_loads=parts))
+    return AeroDataset(aircraft=aircraft, operating_condition=oc, alpha_cases=cases)
+
+
+class TestGroupDecomposition:
+    """Per-part feature: the group contributions must sum to the total
+    (coefficients add at a fixed S_ref) — the invariant the whole feature rests on."""
+
+    def test_groups_listed_in_order(self, parted_dataset):
+        assert parted_dataset.groups() == ["Wing", "Tail"]
+
+    def test_group_lifts_sum_to_total(self, parted_dataset):
+        total = parted_dataset.lift().values
+        groups = parted_dataset.lift(group="Wing").values + parted_dataset.lift(group="Tail").values
+        assert np.allclose(total, groups)
+
+    def test_group_cl_sums_to_total_cl(self, parted_dataset):
+        total = parted_dataset.cl().values
+        groups = parted_dataset.cl(group="Wing").values + parted_dataset.cl(group="Tail").values
+        assert np.allclose(total, groups)
+
+    def test_group_cm_sums_to_total_cm(self, parted_dataset):
+        total = parted_dataset.cm().values
+        groups = parted_dataset.cm(group="Wing").values + parted_dataset.cm(group="Tail").values
+        assert np.allclose(total, groups)
+
+    def test_total_drag_positive_at_zero_alpha(self, parted_dataset):
+        # Summed parts still satisfy the CD(α=0) > 0 gold invariant.
+        cd_polar = parted_dataset.cd()
+        idx = int(np.where(cd_polar.alpha_deg == 0.0)[0][0])
+        assert cd_polar.values[idx] > 0.0
