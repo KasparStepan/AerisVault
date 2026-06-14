@@ -28,6 +28,7 @@ def render():
     if not parts:
         st.warning("This aircraft has no parts yet. Define them on the Aircraft page → 'Parts & groups'.")
         return
+    reference_points = db.list_reference_points(aircraft.id)
 
     st.caption(
         "Enter each part's body-frame total at one angle of attack. Fx is "
@@ -52,15 +53,40 @@ def render():
         col_alpha.metric("α", f"{alpha_deg:g}°")
         current_case = existing_cases[options.index(chosen) - 1]
 
-    # Pre-fill from the existing case for this α, else zeros.
+    # Pre-fill from the existing case for this α, else zeros. One moment column
+    # per reference point (My@<label>).
     loads_by_part = {pl.part_id: pl for pl in (current_case.part_loads if current_case else [])}
-    table = pd.DataFrame([{
-        "Part": p.name,
-        "Group": p.group_name,
-        "Fx [N]": loads_by_part[p.id].fx_n if p.id in loads_by_part else 0.0,
-        "Fz [N]": loads_by_part[p.id].fz_n if p.id in loads_by_part else 0.0,
-        "My [N·m]": loads_by_part[p.id].my_nm if p.id in loads_by_part else 0.0,
-    } for p in parts])
+
+    def moment_value(load, label):
+        if load is None:
+            return 0.0
+        return next((m.my_nm for m in load.moments if m.reference_point.label == label), 0.0)
+
+    rows = []
+    for part in parts:
+        load = loads_by_part.get(part.id)
+        row = {
+            "Part": part.name,
+            "Group": part.group_name,
+            "Fx [N]": load.fx_n if load else 0.0,
+            "Fz [N]": load.fz_n if load else 0.0,
+        }
+        for ref in reference_points:
+            row[f"My@{ref.label}"] = moment_value(load, ref.label)
+        rows.append(row)
+    table = pd.DataFrame(rows)
+
+    column_config = {
+        "Fx [N]": st.column_config.NumberColumn(format="%.4f"),
+        "Fz [N]": st.column_config.NumberColumn(format="%.4f"),
+    }
+    for ref in reference_points:
+        column_config[f"My@{ref.label}"] = st.column_config.NumberColumn(
+            f"My@{ref.label} [N·m]", format="%.4f",
+        )
+
+    if not reference_points:
+        st.info("No moment reference points defined — add them on the Aircraft page to enter Cm data.")
 
     edited = st.data_editor(
         table,
@@ -68,11 +94,7 @@ def render():
         use_container_width=True,
         num_rows="fixed",  # one row per defined part; positional mapping back to parts
         disabled=["Part", "Group"],
-        column_config={
-            "Fx [N]": st.column_config.NumberColumn(format="%.4f"),
-            "Fz [N]": st.column_config.NumberColumn(format="%.4f"),
-            "My [N·m]": st.column_config.NumberColumn(format="%.4f"),
-        },
+        column_config=column_config,
     )
 
     status_default = current_case.convergence_status if current_case else ConvergenceStatus.UNKNOWN.value
@@ -83,11 +105,15 @@ def render():
 
     col_save, col_delete = st.columns([1, 1])
     if col_save.button("💾 Save this α case", type="primary"):
-        loads = [
-            {"part_id": part.id, "fx_n": float(row["Fx [N]"]),
-             "fz_n": float(row["Fz [N]"]), "my_nm": float(row["My [N·m]"])}
-            for part, (_, row) in zip(parts, edited.iterrows())
-        ]
+        loads = []
+        for part, (_, row) in zip(parts, edited.iterrows()):
+            moments = {ref.id: float(row[f"My@{ref.label}"]) for ref in reference_points}
+            loads.append({
+                "part_id": part.id,
+                "fx_n": float(row["Fx [N]"]),
+                "fz_n": float(row["Fz [N]"]),
+                "moments": moments,
+            })
         db.set_alpha_case(operating_condition.id, float(alpha_deg), loads, convergence_status=convergence)
         st.success(f"Saved α = {alpha_deg:g}° ({len(loads)} parts) for '{operating_condition.name}'.")
         st.rerun()

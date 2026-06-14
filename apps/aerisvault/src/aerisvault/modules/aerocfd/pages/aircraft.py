@@ -83,6 +83,40 @@ def render():
                     else:
                         st.warning("Enter both a part name and a group.")
 
+            # ---- Moment reference points for the selected aircraft ----
+            st.divider()
+            st.subheader("Moment reference points")
+            st.caption("Pitching moments are entered per part at each of these points (e.g. CG positions 20/25/30% MAC). Cm is computed at each.")
+            refs = db.list_reference_points(selected.id)
+            if refs:
+                st.dataframe(
+                    pd.DataFrame([{"Reference point": r.label} for r in refs]),
+                    use_container_width=True, hide_index=True,
+                )
+                ref_labels = {r.label: r for r in refs}
+                col_sel, col_new = st.columns(2)
+                chosen_ref = col_sel.selectbox("Rename / delete point:", list(ref_labels.keys()))
+                new_label = col_new.text_input("New label", value=chosen_ref, key=f"ref_rename_{selected.id}")
+                col_rename, col_delete = st.columns(2)
+                if col_rename.button("Rename point", key=f"btn_rename_ref_{selected.id}"):
+                    if new_label.strip():
+                        db.update_reference_point(ref_labels[chosen_ref].id, new_label.strip())
+                        st.rerun()
+                if col_delete.button("Delete point", key=f"btn_del_ref_{selected.id}"):
+                    db.delete_reference_point(ref_labels[chosen_ref].id)
+                    st.rerun()
+            else:
+                st.info("No moment reference points. Add one below.")
+
+            with st.form(f"add_ref_{selected.id}"):
+                ref_label = st.text_input("New reference point", placeholder="e.g. 35% MAC")
+                if st.form_submit_button("Add reference point"):
+                    if ref_label.strip():
+                        db.add_reference_point(selected.id, ref_label.strip())
+                        st.rerun()
+                    else:
+                        st.warning("Enter a label.")
+
             st.divider()
             st.write("**Danger zone:**")
             if st.button("🗑️ Delete this aircraft and all its operating conditions", type="secondary"):

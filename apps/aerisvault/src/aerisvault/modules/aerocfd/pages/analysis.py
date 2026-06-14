@@ -37,6 +37,11 @@ def render():
         f"{len(alpha_cases)} cases · q∞ = {dataset.dynamic_pressure_pa:.2f} Pa"
     )
 
+    # Pitching moment is referenced to a chosen point (e.g. 20/25/30% MAC); the
+    # Cm plots below use this selection.
+    references = dataset.reference_points()
+    selected_reference = st.selectbox("Moment reference point (Cm)", references) if references else None
+
     cd_polar = dataset.cd()
     # Runtime echo of gold test #4: negative CD signals a bad input convention.
     if np.any(cd_polar.values < 0):
@@ -49,7 +54,7 @@ def render():
     lift_col, drag_col, moment_col = st.columns(3)
     lift_col.plotly_chart(cl_alpha_figure(dataset.cl()), width="content")
     drag_col.plotly_chart(cd_alpha_figure(cd_polar), width="content")
-    moment_col.plotly_chart(cm_alpha_figure(dataset.cm()), width="content")
+    moment_col.plotly_chart(cm_alpha_figure(dataset.cm(reference=selected_reference)), width="content")
 
     # Efficiency and the aerodynamic (drag) polar — square (1:1) plots.
     efficiency_col, polar_col = st.columns(2)
@@ -63,8 +68,12 @@ def render():
         st.subheader("By group")
         st.caption("Total vs each group's contribution (the groups sum to the total).")
         coefficient = st.radio("Coefficient", ["CL", "CD", "Cm"], horizontal=True)
-        polar_for = {"CL": dataset.cl, "CD": dataset.cd, "Cm": dataset.cm}[coefficient]
-        curves = [polar_for()] + [polar_for(group=g) for g in groups]
+        if coefficient == "Cm":
+            curves = [dataset.cm(reference=selected_reference)]
+            curves += [dataset.cm(group=g, reference=selected_reference) for g in groups]
+        else:
+            polar_for = {"CL": dataset.cl, "CD": dataset.cd}[coefficient]
+            curves = [polar_for()] + [polar_for(group=g) for g in groups]
         st.plotly_chart(
             overlay_alpha_figure(curves, f"{coefficient} by group", f"{coefficient} [-]"),
             width="content",
