@@ -11,11 +11,15 @@ def _pages():
         comparison,
         settings,
     )
+    # Every page's callable is named render(), so Streamlit would infer the same
+    # URL pathname for all four and reject them as duplicates. Give each an
+    # explicit, unique url_path. Prefix with the module key to stay unique across
+    # modules once more tools are registered.
     return [
-        st.Page(database.render,        title="Database",        icon="🗄️"),
-        st.Page(single_analysis.render, title="Single Analysis", icon="📈"),
-        st.Page(comparison.render,      title="Comparison",      icon="⚖️"),
-        st.Page(settings.render,        title="Settings",        icon="⚙️"),
+        st.Page(database.render,        title="Database",        icon="🗄️", url_path="fsi-database"),
+        st.Page(single_analysis.render, title="Single Analysis", icon="📈", url_path="fsi-single-analysis"),
+        st.Page(comparison.render,      title="Comparison",      icon="⚖️", url_path="fsi-comparison"),
+        st.Page(settings.render,        title="Settings",        icon="⚙️", url_path="fsi-settings"),
     ]
 
 
