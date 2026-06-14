@@ -13,14 +13,15 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from aerisvault.modules.aerocfd.core.models import (
-    AircraftORM, AlphaCaseORM, Base, OperatingConditionORM,
+    AircraftORM, AircraftPartORM, AlphaCaseORM, AlphaCasePartLoadORM,
+    Base, OperatingConditionORM,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class AeroCfdDatabase:
-    """Manager for the aerocfd aircraft/operating-condition/alpha-case database."""
+    """Manager for the aerocfd aircraft / parts / operating-condition / alpha-case database."""
 
     def __init__(self, db_url: str = "sqlite:///aerocfd.db"):
         self.engine = create_engine(db_url)
@@ -51,7 +52,10 @@ class AeroCfdDatabase:
             stmt = (
                 select(AircraftORM)
                 .order_by(AircraftORM.created_at.desc())
-                .options(selectinload(AircraftORM.operating_conditions))
+                .options(
+                    selectinload(AircraftORM.operating_conditions),
+                    selectinload(AircraftORM.parts),
+                )
             )
             return list(session.scalars(stmt).all())
 
@@ -60,7 +64,10 @@ class AeroCfdDatabase:
             stmt = (
                 select(AircraftORM)
                 .where(AircraftORM.id == aircraft_id)
-                .options(selectinload(AircraftORM.operating_conditions))
+                .options(
+                    selectinload(AircraftORM.operating_conditions),
+                    selectinload(AircraftORM.parts),
+                )
             )
             return session.scalar(stmt)
 
@@ -80,6 +87,47 @@ class AeroCfdDatabase:
             if not aircraft:
                 return False
             session.delete(aircraft)
+            session.commit()
+            return True
+
+    # --- Parts ---
+
+    def add_part(self, aircraft_id: int, name: str, group_name: str) -> AircraftPartORM:
+        with self.get_session() as session:
+            order = len(self.list_parts(aircraft_id))
+            part = AircraftPartORM(
+                aircraft_id=aircraft_id, name=name, group_name=group_name, display_order=order,
+            )
+            session.add(part)
+            session.commit()
+            session.refresh(part)
+            return part
+
+    def list_parts(self, aircraft_id: int) -> List[AircraftPartORM]:
+        with self.get_session() as session:
+            stmt = (
+                select(AircraftPartORM)
+                .where(AircraftPartORM.aircraft_id == aircraft_id)
+                .order_by(AircraftPartORM.display_order, AircraftPartORM.id)
+            )
+            return list(session.scalars(stmt).all())
+
+    def update_part(self, part_id: int, **fields) -> bool:
+        with self.get_session() as session:
+            part = session.get(AircraftPartORM, part_id)
+            if not part:
+                return False
+            for key, value in fields.items():
+                setattr(part, key, value)
+            session.commit()
+            return True
+
+    def delete_part(self, part_id: int) -> bool:
+        with self.get_session() as session:
+            part = session.get(AircraftPartORM, part_id)
+            if not part:
+                return False
+            session.delete(part)
             session.commit()
             return True
 
@@ -118,16 +166,6 @@ class AeroCfdDatabase:
             )
             return session.scalar(stmt)
 
-    def update_operating_condition(self, oc_id: int, **fields) -> bool:
-        with self.get_session() as session:
-            oc = session.get(OperatingConditionORM, oc_id)
-            if not oc:
-                return False
-            for key, value in fields.items():
-                setattr(oc, key, value)
-            session.commit()
-            return True
-
     def delete_operating_condition(self, oc_id: int) -> bool:
         with self.get_session() as session:
             oc = session.get(OperatingConditionORM, oc_id)
@@ -137,40 +175,73 @@ class AeroCfdDatabase:
             session.commit()
             return True
 
-    # --- Alpha cases ---
+    # --- Alpha cases (with per-part loads) ---
 
     def list_alpha_cases(self, oc_id: int) -> List[AlphaCaseORM]:
+        """All α cases for an operating condition, with their part loads and the
+        part each load belongs to (for name + group)."""
         with self.get_session() as session:
             stmt = (
                 select(AlphaCaseORM)
                 .where(AlphaCaseORM.operating_condition_id == oc_id)
                 .order_by(AlphaCaseORM.alpha_deg)
+                .options(selectinload(AlphaCaseORM.part_loads).selectinload(AlphaCasePartLoadORM.part))
             )
             return list(session.scalars(stmt).all())
 
-    def replace_alpha_cases(self, oc_id: int, rows: list[dict]) -> int:
-        """Replace all α cases for an operating condition with the given rows.
+    def get_alpha_case(self, oc_id: int, alpha_deg: float) -> Optional[AlphaCaseORM]:
+        with self.get_session() as session:
+            stmt = (
+                select(AlphaCaseORM)
+                .where(
+                    AlphaCaseORM.operating_condition_id == oc_id,
+                    AlphaCaseORM.alpha_deg == alpha_deg,
+                )
+                .options(selectinload(AlphaCaseORM.part_loads).selectinload(AlphaCasePartLoadORM.part))
+            )
+            return session.scalar(stmt)
 
-        Each row is a dict with keys: alpha_deg, fx_n, fz_n, my_nm, and optionally
-        convergence_status / case_name / notes. The data-entry page edits the whole
-        table at once, so a wholesale replace is the simplest faithful save.
+    def set_alpha_case(
+        self, oc_id: int, alpha_deg: float, part_loads: list[dict],
+        convergence_status: str = "unknown",
+    ) -> AlphaCaseORM:
+        """Create or replace the α case at (oc_id, alpha_deg) with the given part loads.
+
+        Each entry in part_loads is a dict: {part_id, fx_n, fz_n, my_nm}. An existing
+        case at the same α is wiped and rebuilt, so saving is idempotent.
         """
         with self.get_session() as session:
-            existing = session.scalars(
-                select(AlphaCaseORM).where(AlphaCaseORM.operating_condition_id == oc_id)
-            ).all()
-            for case in existing:
-                session.delete(case)
-            for row in rows:
-                session.add(AlphaCaseORM(
-                    operating_condition_id=oc_id,
-                    alpha_deg=row["alpha_deg"],
-                    fx_n=row["fx_n"],
-                    fz_n=row["fz_n"],
-                    my_nm=row["my_nm"],
-                    convergence_status=row.get("convergence_status", "unknown"),
-                    case_name=row.get("case_name"),
-                    notes=row.get("notes"),
+            case = session.scalar(
+                select(AlphaCaseORM).where(
+                    AlphaCaseORM.operating_condition_id == oc_id,
+                    AlphaCaseORM.alpha_deg == alpha_deg,
+                )
+            )
+            if case is None:
+                case = AlphaCaseORM(operating_condition_id=oc_id, alpha_deg=alpha_deg)
+                session.add(case)
+            case.convergence_status = convergence_status
+            # Replace the case's loads wholesale.
+            for existing in list(case.part_loads):
+                session.delete(existing)
+            session.flush()
+            for entry in part_loads:
+                session.add(AlphaCasePartLoadORM(
+                    alpha_case_id=case.id,
+                    part_id=entry["part_id"],
+                    fx_n=entry.get("fx_n", 0.0),
+                    fz_n=entry.get("fz_n", 0.0),
+                    my_nm=entry.get("my_nm", 0.0),
                 ))
             session.commit()
-            return len(rows)
+            session.refresh(case)
+            return case
+
+    def delete_alpha_case(self, alpha_case_id: int) -> bool:
+        with self.get_session() as session:
+            case = session.get(AlphaCaseORM, alpha_case_id)
+            if not case:
+                return False
+            session.delete(case)
+            session.commit()
+            return True

@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -38,9 +38,33 @@ class AircraftORM(Base):
     operating_conditions: Mapped[List["OperatingConditionORM"]] = relationship(
         back_populates="aircraft", cascade="all, delete-orphan"
     )
+    parts: Mapped[List["AircraftPartORM"]] = relationship(
+        back_populates="aircraft", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"AircraftORM(id={self.id}, name='{self.name}')"
+
+
+class AircraftPartORM(Base):
+    __tablename__ = "aircraft_part"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    aircraft_id: Mapped[int] = mapped_column(
+        ForeignKey("aircraft.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # The analysis group this part belongs to, e.g. "Wing", "Fuselage", "Tail".
+    group_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    aircraft: Mapped["AircraftORM"] = relationship(back_populates="parts")
+    part_loads: Mapped[List["AlphaCasePartLoadORM"]] = relationship(
+        back_populates="part", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:
+        return f"AircraftPartORM(id={self.id}, name='{self.name}', group='{self.group_name}')"
 
 
 class OperatingConditionORM(Base):
@@ -89,14 +113,38 @@ class AlphaCaseORM(Base):
     iteration_count: Mapped[Optional[int]] = mapped_column(Integer)
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
-    # Raw Fluent body-frame totals (Fx forward-positive; My raw, sign flip in lib).
-    fx_n: Mapped[float] = mapped_column(Float, nullable=False)
-    fz_n: Mapped[float] = mapped_column(Float, nullable=False)
-    my_nm: Mapped[float] = mapped_column(Float, nullable=False)
-
+    # Totals are no longer stored — they are summed from the per-part loads below.
     operating_condition: Mapped["OperatingConditionORM"] = relationship(
         back_populates="alpha_cases"
+    )
+    part_loads: Mapped[List["AlphaCasePartLoadORM"]] = relationship(
+        back_populates="alpha_case", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
         return f"AlphaCaseORM(id={self.id}, alpha_deg={self.alpha_deg})"
+
+
+class AlphaCasePartLoadORM(Base):
+    __tablename__ = "alpha_case_part_load"
+    __table_args__ = (UniqueConstraint("alpha_case_id", "part_id", name="uq_case_part"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    alpha_case_id: Mapped[int] = mapped_column(
+        ForeignKey("alpha_case.id", ondelete="CASCADE"), nullable=False
+    )
+    part_id: Mapped[int] = mapped_column(
+        ForeignKey("aircraft_part.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Raw Fluent body-frame load for this part at this α (Fx forward-positive;
+    # My raw, sign flip in the library).
+    fx_n: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    fz_n: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    my_nm: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+
+    alpha_case: Mapped["AlphaCaseORM"] = relationship(back_populates="part_loads")
+    part: Mapped["AircraftPartORM"] = relationship(back_populates="part_loads")
+
+    def __repr__(self) -> str:
+        return f"AlphaCasePartLoadORM(case={self.alpha_case_id}, part={self.part_id})"

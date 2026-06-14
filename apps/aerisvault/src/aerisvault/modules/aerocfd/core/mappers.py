@@ -11,6 +11,7 @@ from aerocfd.models.aircraft import Aircraft
 from aerocfd.models.alpha_case import AlphaCase, ConvergenceStatus
 from aerocfd.models.dataset import AeroDataset
 from aerocfd.models.operating_condition import OperatingCondition
+from aerocfd.models.part_load import PartLoad
 
 from aerisvault.modules.aerocfd.core.models import (
     AircraftORM, AlphaCaseORM, OperatingConditionORM,
@@ -38,13 +39,24 @@ def operating_condition_to_dataclass(orm: OperatingConditionORM) -> OperatingCon
 
 
 def alpha_case_to_dataclass(orm: AlphaCaseORM) -> AlphaCase:
+    """Build an AlphaCase with one PartLoad per stored part load.
+
+    Each load row is joined to its part for the part name and group, which the
+    library needs for per-group summation.
+    """
+    part_loads = tuple(
+        PartLoad(
+            part_name=load.part.name,
+            group=load.part.group_name,
+            fx_n=load.fx_n,
+            fz_n=load.fz_n,
+            my_nm=load.my_nm,
+        )
+        for load in orm.part_loads
+    )
     return AlphaCase(
         alpha_deg=orm.alpha_deg,
-        fx_n=orm.fx_n,
-        fz_n=orm.fz_n,
-        my_nm=orm.my_nm,
-        # Fall back to UNKNOWN if the status is missing (e.g. a transient ORM row
-        # whose column default hasn't been applied by a DB flush yet).
+        part_loads=part_loads,
         convergence_status=ConvergenceStatus(orm.convergence_status or "unknown"),
         notes=orm.notes or "",
     )
