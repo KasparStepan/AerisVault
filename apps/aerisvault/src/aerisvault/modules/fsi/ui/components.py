@@ -80,7 +80,7 @@ def sidebar_plot_style() -> dict:
 
 def sidebar_filter_settings():
     """Display filter settings in the sidebar and return them as a dict."""
-    settings = st.session_state.settings.filter_settings
+    settings = st.session_state["fsi.settings"].filter_settings
     
     st.sidebar.subheader("🔧 Filter Settings")
     
@@ -129,7 +129,7 @@ def sidebar_filter_settings():
 
 def simulation_selector(label: str = "Select Simulation", key: str = "sim_selector"):
     """Standard simulation dropdown menu."""
-    db = st.session_state.db
+    db = st.session_state["fsi.db"]
     sims = db.list_simulations()
     
     if not sims:
