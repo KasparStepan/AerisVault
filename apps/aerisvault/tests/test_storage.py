@@ -3,8 +3,8 @@
 import pytest
 from pathlib import Path
 
-from aerisvault.core.storage import StorageManager
-from aerisvault.core.models import FileType
+from aerisvault.modules.fsi.core.storage import StorageManager
+from aerisvault.modules.fsi.core.models import FileType
 
 
 @pytest.fixture

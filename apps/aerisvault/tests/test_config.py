@@ -4,7 +4,7 @@ import json
 import pytest
 from pathlib import Path
 
-from aerisvault.core.config import AppSettings, FilterSettings, PlotSettings
+from aerisvault.modules.fsi.core.config import AppSettings, FilterSettings, PlotSettings
 
 
 @pytest.fixture

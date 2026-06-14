@@ -1,8 +1,8 @@
 """Tests for SimulationDatabase manager."""
 
 import pytest
-from aerisvault.core.database import SimulationDatabase
-from aerisvault.core.models import FileType
+from aerisvault.modules.fsi.core.database import SimulationDatabase
+from aerisvault.modules.fsi.core.models import FileType
 
 
 @pytest.fixture
