@@ -44,7 +44,7 @@ def apply_cfc_filter(
     """Apply an SAE J211 CFC (Channel Frequency Class) filter.
 
     The CFC value defines the cut-off frequency as ``fc = cfc * 5/3``.
-    Internally uses a 4th-order Butterworth applied forward and backward
+    Internally uses a 2nd-order Butterworth applied forward and backward
     (``filtfilt``) for zero phase distortion, as specified by SAE J211.
 
     Args:
@@ -70,7 +70,9 @@ def apply_cfc_filter(
         return data.copy()
 
     normal_cutoff = fc / nyq
-    b, a = signal.butter(4, normal_cutoff, btype="low", analog=False)
+    # SAE J211 specifies a 2nd-order Butterworth applied forward and backward
+    # (filtfilt) for zero phase distortion.
+    b, a = signal.butter(2, normal_cutoff, btype="low", analog=False)
     return signal.filtfilt(b, a, data)
 
 

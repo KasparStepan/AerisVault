@@ -69,6 +69,24 @@ class TestCFCFilter:
         filtered = apply_cfc_filter(t, v, cfc=60)
         assert len(filtered) == 500
 
+    def test_matches_second_order_phaseless_butterworth(self):
+        """SAE J211 CFC = 2nd-order Butterworth applied forward+backward at fc = CFC*5/3."""
+        from scipy import signal
+
+        t = np.linspace(0, 1, 10000)
+        x = np.random.RandomState(0).randn(10000)
+
+        out = apply_cfc_filter(t, x, cfc=60)
+
+        # Build the reference from the SAME sampling frequency the implementation
+        # derives, so the comparison isolates the filter order, not a cutoff mismatch.
+        fc = 60 * (5.0 / 3.0)
+        nyq = 0.5 * get_sampling_frequency(t)
+        b, a = signal.butter(2, fc / nyq, btype="low", analog=False)
+        expected = signal.filtfilt(b, a, x)
+
+        np.testing.assert_allclose(out, expected, rtol=1e-9, atol=1e-12)
+
 
 # ---------------------------------------------------------------------------
 # Butterworth filter
