@@ -34,7 +34,7 @@ def main():
     
     st.sidebar.markdown("---")
     st.sidebar.info(
-        "**AerisVault v0.3.0**\n\n"
+        "**AerisVault v0.2.0**\n\n"
         "Advanced Post-processing for LS-DYNA ICFD simulations."
     )
 

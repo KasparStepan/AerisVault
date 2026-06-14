@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -467,9 +468,7 @@ class Curve:
         Returns:
             Resolved Path to the written file.
         """
-        from pathlib import Path as _Path
-
-        out = _Path(filepath).resolve()
+        out = Path(filepath).resolve()
         self.to_dataframe().to_parquet(out, index=False)
         logger.info("Curve '%s' exported to %s", self.name, out)
         return out
