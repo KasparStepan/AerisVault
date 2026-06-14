@@ -58,6 +58,16 @@ class AeroDataset:
         """Distinct analysis groups present (e.g. ['Wing', 'Fuselage', 'Tail'])."""
         return group_names(self._cases)
 
+    def reference_points(self) -> list[str]:
+        """Distinct moment reference-point labels present (e.g. ['20% MAC', ...])."""
+        seen: list[str] = []
+        for case in self._cases:
+            for load in case.part_loads:
+                for label, _ in load.moments:
+                    if label not in seen:
+                        seen.append(label)
+        return seen
+
     # --- wind-frame forces and moment, total or per group ---
 
     def _wind_force_arrays(self, group: Optional[str]) -> tuple[np.ndarray, np.ndarray]:
@@ -72,10 +82,12 @@ class AeroDataset:
             lifts.append(lift)
         return np.array(drags), np.array(lifts)
 
-    def _my_array(self, group: Optional[str]) -> np.ndarray:
-        if group is None:
+    def _my_array(self, group: Optional[str], reference: Optional[str] = None) -> np.ndarray:
+        if group is None and reference is None:
             return np.array([c.total_my_nm for c in self._cases], dtype=float)
-        return np.array([my_sum(c.part_loads, group) for c in self._cases], dtype=float)
+        return np.array(
+            [my_sum(c.part_loads, group, reference) for c in self._cases], dtype=float
+        )
 
     # --- polars ---
 
@@ -99,7 +111,8 @@ class AeroDataset:
         values = lift_to_drag(self.lift(group).values, self.drag(group).values)
         return Polar(self.alpha_deg, values, name="L/D" + _suffix(group), units="-")
 
-    def cm(self, group: Optional[str] = None) -> Polar:
-        my_aero = fluent_my_to_aero(self._my_array(group))
+    def cm(self, group: Optional[str] = None, reference: Optional[str] = None) -> Polar:
+        my_aero = fluent_my_to_aero(self._my_array(group, reference))
         values = cm(my_aero, self.dynamic_pressure_pa, self.aircraft.s_ref_m2, self.aircraft.c_ref_m)
-        return Polar(self.alpha_deg, values, name="Cm" + _suffix(group), units="-")
+        ref_suffix = f" @{reference}" if reference else ""
+        return Polar(self.alpha_deg, values, name="Cm" + _suffix(group) + ref_suffix, units="-")

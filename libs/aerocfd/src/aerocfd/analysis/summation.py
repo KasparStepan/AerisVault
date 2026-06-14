@@ -30,10 +30,16 @@ def wind_force_sum(
     return drag_total, lift_total
 
 
-def my_sum(part_loads: Iterable[PartLoad], group: Optional[str] = None) -> float:
-    """Sum raw Fluent My over the parts (or one group). My is invariant under the
-    in-plane body→wind rotation, so it sums directly; the sign flip is applied later."""
-    return float(sum(p.my_nm for p in part_loads if group is None or p.group == group))
+def my_sum(
+    part_loads: Iterable[PartLoad], group: Optional[str] = None,
+    reference: Optional[str] = None,
+) -> float:
+    """Sum raw Fluent My over the parts (or one group), at one reference point.
+    My is invariant under the in-plane body→wind rotation, so it sums directly;
+    the sign flip is applied later. reference=None uses each part's single my_nm."""
+    return float(sum(
+        p.moment_for(reference) for p in part_loads if group is None or p.group == group
+    ))
 
 
 def group_names(cases) -> list[str]:

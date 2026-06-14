@@ -120,3 +120,39 @@ class TestGroupDecomposition:
         cd_polar = parted_dataset.cd()
         idx = int(np.where(cd_polar.alpha_deg == 0.0)[0][0])
         assert cd_polar.values[idx] > 0.0
+
+
+@pytest.fixture
+def multi_reference_dataset(reference_aircraft_kwargs, reference_operating_condition_kwargs):
+    """A dataset whose parts carry pitching moments at two reference points."""
+    aircraft = Aircraft(**reference_aircraft_kwargs)
+    oc = OperatingCondition(**reference_operating_condition_kwargs)
+    cases = []
+    for alpha in [0.0, 5.0]:
+        parts = [
+            PartLoad("wing", "Wing", fx_n=-10.0, fz_n=100.0 * alpha + 200.0,
+                     moments=[("20% MAC", 5.0 * alpha), ("25% MAC", 4.0 * alpha)]),
+            PartLoad("tail", "Tail", fx_n=-2.0, fz_n=20.0,
+                     moments=[("20% MAC", -1.0 * alpha), ("25% MAC", -2.0 * alpha)]),
+        ]
+        cases.append(AlphaCase(alpha_deg=alpha, part_loads=parts))
+    return AeroDataset(aircraft=aircraft, operating_condition=oc, alpha_cases=cases)
+
+
+class TestMomentReferences:
+    def test_reference_points_listed(self, multi_reference_dataset):
+        assert multi_reference_dataset.reference_points() == ["20% MAC", "25% MAC"]
+
+    def test_cm_differs_between_references(self, multi_reference_dataset):
+        cm20 = multi_reference_dataset.cm(reference="20% MAC").values
+        cm25 = multi_reference_dataset.cm(reference="25% MAC").values
+        # at α=5 the two references give different Cm (moments differ)
+        assert cm20[-1] != pytest.approx(cm25[-1])
+
+    def test_group_cm_sums_to_total_at_a_reference(self, multi_reference_dataset):
+        total = multi_reference_dataset.cm(reference="20% MAC").values
+        groups = (
+            multi_reference_dataset.cm(group="Wing", reference="20% MAC").values
+            + multi_reference_dataset.cm(group="Tail", reference="20% MAC").values
+        )
+        assert np.allclose(total, groups)
