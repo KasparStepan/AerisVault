@@ -6,7 +6,7 @@ import streamlit as st
 
 from aerocfd.viz.plot_utils import (
     cd_alpha_figure, cl_alpha_figure, cm_alpha_figure,
-    drag_polar_figure, lift_to_drag_alpha_figure,
+    drag_polar_figure, lift_to_drag_alpha_figure, overlay_alpha_figure,
 )
 
 from aerisvault.modules.aerocfd.core.bootstrap import ensure_initialized
@@ -55,3 +55,17 @@ def render():
     efficiency_col, polar_col = st.columns(2)
     efficiency_col.plotly_chart(lift_to_drag_alpha_figure(dataset.lift_to_drag()), width="content")
     polar_col.plotly_chart(drag_polar_figure(dataset.cl(), cd_polar), width="content")
+
+    # --- Per-group decomposition: total + each group's contribution overlaid ---
+    groups = dataset.groups()
+    if groups:
+        st.divider()
+        st.subheader("By group")
+        st.caption("Total vs each group's contribution (the groups sum to the total).")
+        coefficient = st.radio("Coefficient", ["CL", "CD", "Cm"], horizontal=True)
+        polar_for = {"CL": dataset.cl, "CD": dataset.cd, "Cm": dataset.cm}[coefficient]
+        curves = [polar_for()] + [polar_for(group=g) for g in groups]
+        st.plotly_chart(
+            overlay_alpha_figure(curves, f"{coefficient} by group", f"{coefficient} [-]"),
+            width="content",
+        )

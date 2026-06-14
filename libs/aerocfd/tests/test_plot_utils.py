@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 from aerocfd.models.polar import Polar
 from aerocfd.viz.plot_utils import (
     cl_alpha_figure, cd_alpha_figure, lift_to_drag_alpha_figure,
-    drag_polar_figure, cm_alpha_figure,
+    drag_polar_figure, cm_alpha_figure, overlay_alpha_figure,
 )
 
 
@@ -66,3 +66,13 @@ class TestAspectRatio:
     def test_drag_polar_is_square(self, cl_polar, cd_polar):
         fig = drag_polar_figure(cl_polar, cd_polar)
         assert fig.layout.height == pytest.approx(fig.layout.width)
+
+
+class TestOverlay:
+    def test_overlay_has_one_trace_per_polar_and_is_tall(self, cl_polar):
+        total = Polar(cl_polar.alpha_deg, cl_polar.values, name="CL")
+        wing = Polar(cl_polar.alpha_deg, cl_polar.values * 0.7, name="CL (Wing)")
+        fig = overlay_alpha_figure([total, wing], "CL by group", "CL [-]")
+        assert isinstance(fig, go.Figure)
+        assert len(fig.data) == 2
+        assert fig.layout.height == pytest.approx(2 * fig.layout.width)

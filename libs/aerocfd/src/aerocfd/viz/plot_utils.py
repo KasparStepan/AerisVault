@@ -73,3 +73,20 @@ def drag_polar_figure(cl_polar: Polar, cd_polar: Polar) -> go.Figure:
         "Drag polar (CL vs CD)", "CD [-]", "CL [-]",
         SQUARE_SIZE_PX, SQUARE_SIZE_PX,
     )
+
+
+def overlay_alpha_figure(polars: list[Polar], title: str, y_label: str) -> go.Figure:
+    """Overlay several α-indexed polars on one tall (1:2) figure.
+
+    Used for group decomposition (total + per-group contributions). Each polar's
+    name becomes its legend entry (e.g. 'CL', 'CL (Wing)', 'CL (Fuselage)')."""
+    fig = go.Figure()
+    for polar in polars:
+        fig.add_trace(go.Scatter(
+            x=polar.alpha_deg, y=polar.values, mode="lines+markers", name=polar.name,
+        ))
+    fig.update_layout(
+        title=title, xaxis_title="α [deg]", yaxis_title=y_label,
+        width=TALL_WIDTH_PX, height=TALL_HEIGHT_PX, autosize=False,
+    )
+    return fig
