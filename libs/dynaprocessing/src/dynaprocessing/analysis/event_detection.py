@@ -161,17 +161,25 @@ def detect_oscillations(
     curve: Curve,
     min_frequency: float = 0.1,
     max_frequency: float = 10.0,
+    significance_factor: float = 5.0,
 ) -> Dict:
     """Detect oscillations using FFT analysis.
+
+    A signal is reported as oscillating only when a dominant in-band frequency
+    stands clearly above the surrounding spectrum (dominant magnitude greater
+    than ``significance_factor`` times the in-band median magnitude). This
+    avoids labelling flat or monotonic signals as oscillating.
 
     Args:
         curve: Input curve.
         min_frequency: Minimum oscillation frequency (Hz).
         max_frequency: Maximum oscillation frequency (Hz).
+        significance_factor: Required ratio of the dominant peak magnitude to
+            the in-band median magnitude before the signal counts as oscillating.
 
     Returns:
-        Dictionary with oscillating (bool), dominant_frequency,
-        period, amplitude, fft_magnitude.
+        Dictionary with oscillating (bool), and when True also
+        dominant_frequency, period, amplitude, fft_magnitude.
     """
     data = curve.values
     time = curve.time
@@ -180,29 +188,36 @@ def detect_oscillations(
     if dt <= 0:
         return {"oscillating": False}
 
-    n = len(data)
-    fft_values = np.fft.fft(data)
+    # Remove DC so a constant offset does not masquerade as signal energy.
+    data_centered = data - np.mean(data)
+
+    n = len(data_centered)
+    fft_values = np.fft.fft(data_centered)
     fft_freq = np.fft.fftfreq(n, dt)
 
     freq_mask = (fft_freq >= min_frequency) & (fft_freq <= max_frequency)
     fft_freq_filtered = fft_freq[freq_mask]
     fft_mag_filtered = np.abs(fft_values[freq_mask])
 
-    if len(fft_mag_filtered) > 0:
-        dom_idx = int(np.argmax(fft_mag_filtered))
-        dom_freq = abs(float(fft_freq_filtered[dom_idx]))
-        dom_mag = float(fft_mag_filtered[dom_idx])
-        amplitude = float((data.max() - data.min()) / 2.0)
+    if len(fft_mag_filtered) == 0:
+        return {"oscillating": False}
 
-        return {
-            "oscillating": True,
-            "dominant_frequency": dom_freq,
-            "period": 1.0 / dom_freq if dom_freq > 0 else float("inf"),
-            "amplitude": amplitude,
-            "fft_magnitude": dom_mag,
-        }
+    dom_idx = int(np.argmax(fft_mag_filtered))
+    dom_mag = float(fft_mag_filtered[dom_idx])
+    median_mag = float(np.median(fft_mag_filtered))
 
-    return {"oscillating": False}
+    is_significant = median_mag > 0 and dom_mag > significance_factor * median_mag
+    if not is_significant:
+        return {"oscillating": False}
+
+    dom_freq = abs(float(fft_freq_filtered[dom_idx]))
+    return {
+        "oscillating": True,
+        "dominant_frequency": dom_freq,
+        "period": 1.0 / dom_freq if dom_freq > 0 else float("inf"),
+        "amplitude": float((data.max() - data.min()) / 2.0),
+        "fft_magnitude": dom_mag,
+    }
 
 
 def auto_detect_events(curve: Curve) -> Dict:

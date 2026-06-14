@@ -134,3 +134,30 @@ class TestAutoDetect:
         assert "inflation" in result
         assert "steady_state" in result
         assert "oscillations" in result
+
+
+def test_oscillation_detected_for_clean_sine():
+    import numpy as np
+    from dynaprocessing.models.curve import Curve
+    from dynaprocessing.analysis.event_detection import detect_oscillations
+
+    t = np.linspace(0, 10, 2000)
+    sine = np.sin(2 * np.pi * 2.0 * t)  # 2 Hz
+    curve = Curve(time=t, values=sine, name="osc")
+
+    result = detect_oscillations(curve)
+    assert result["oscillating"] is True
+    assert abs(result["dominant_frequency"] - 2.0) < 0.1
+
+
+def test_no_oscillation_for_flat_signal():
+    import numpy as np
+    from dynaprocessing.models.curve import Curve
+    from dynaprocessing.analysis.event_detection import detect_oscillations
+
+    t = np.linspace(0, 10, 2000)
+    flat = np.full_like(t, 42.0)
+    curve = Curve(time=t, values=flat, name="flat")
+
+    result = detect_oscillations(curve)
+    assert result["oscillating"] is False
