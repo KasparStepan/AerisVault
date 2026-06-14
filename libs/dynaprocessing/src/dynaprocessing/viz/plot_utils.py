@@ -11,9 +11,6 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-
 from dynaprocessing.models.curve import Curve
 
 logger = logging.getLogger(__name__)
@@ -56,7 +53,7 @@ def plot_curves(
     grid_minor: bool = False,
     show: bool = True,
     save_path: Optional[str] = None,
-) -> Tuple[plt.Figure, plt.Axes]:
+) -> Tuple[Any, Any]:
     """Plot one or more Curves on a single Matplotlib axis.
 
     Args:
@@ -73,6 +70,8 @@ def plot_curves(
     Returns:
         ``(fig, ax)`` tuple for further customisation.
     """
+    import matplotlib.pyplot as plt
+
     fig, ax = plt.subplots(figsize=figsize)
 
     for curve in curves:
@@ -122,6 +121,9 @@ def export_pdf(
     Returns:
         Resolved Path to the written PDF.
     """
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_pdf import PdfPages
+
     output_path = Path(output_path).resolve()
 
     with PdfPages(output_path) as pdf:

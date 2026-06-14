@@ -14,15 +14,18 @@ dependencies = [
     "numpy>=1.24",
     "pandas>=2.0",
     "scipy>=1.10",
-    "matplotlib>=3.7",
-    "plotly>=5.15",
-    "pyarrow>=12.0",
 ]
 
 [project.optional-dependencies]
+viz = ["plotly>=5.15"]
+report = ["matplotlib>=3.7"]
+io = ["pyarrow>=12.0"]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "plotly>=5.15",
+    "matplotlib>=3.7",
+    "pyarrow>=12.0",
 ]
 
 [tool.setuptools.packages.find]
