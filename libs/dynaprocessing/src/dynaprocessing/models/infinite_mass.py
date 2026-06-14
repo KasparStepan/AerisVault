@@ -78,6 +78,10 @@ class InfiniteMassSimulation(BaseSimulation):
         """
         return self.curves.get(curve_name)
 
+    def list_curves(self) -> List[Curve]:
+        """All loaded curves (flat storage, one Curve per force/moment column)."""
+        return list(self.curves.values())
+
     # ------------------------------------------------------------------
     # Convenience properties for common ICFD force columns
     # ------------------------------------------------------------------

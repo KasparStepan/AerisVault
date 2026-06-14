@@ -50,5 +50,14 @@ class BaseSimulation:
         )
         return f"<{self.__class__.__name__}: {self.dir_path.name} | {meta_str}>"
 
+    def list_curves(self) -> list:
+        """Return all curves as a flat list, regardless of internal storage shape.
+
+        Subclasses override this. Provides a uniform interface so callers never
+        branch on whether curves are stored flat (infinite mass) or nested by
+        node (finite mass).
+        """
+        raise NotImplementedError
+
     def __repr__(self) -> str:
         return self.summary()

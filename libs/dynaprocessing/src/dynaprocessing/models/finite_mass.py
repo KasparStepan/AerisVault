@@ -89,6 +89,14 @@ class FiniteMassSimulation(BaseSimulation):
                 return node_curves[curve_name]
         return None
 
+    def list_curves(self) -> List[Curve]:
+        """All loaded curves, flattened across nodes."""
+        return [
+            curve
+            for node_curves in self.curves.values()
+            for curve in node_curves.values()
+        ]
+
     def get_all_curves_by_name(self, curve_name: str) -> List[Curve]:
         """Return all curves matching a name (e.g., from multiple nodes).
 
