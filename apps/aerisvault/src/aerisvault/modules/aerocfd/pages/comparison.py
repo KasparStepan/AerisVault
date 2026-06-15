@@ -74,24 +74,24 @@ def render():
     lift_col, drag_col, moment_col = st.columns(3)
     lift_col.plotly_chart(
         overlay_alpha_figure([_relabel(dataset_a.cl(), label_a), _relabel(dataset_b.cl(), label_b)],
-                             "CL", "CL [-]"), width="content")
+                             "CL", "CL [-]"), width="stretch")
     drag_col.plotly_chart(
         overlay_alpha_figure([_relabel(dataset_a.cd(), label_a), _relabel(dataset_b.cd(), label_b)],
-                             "CD", "CD [-]"), width="content")
+                             "CD", "CD [-]"), width="stretch")
     cm_title = "Cm" + (f" @ {selected_ref}" if selected_ref else "")
     moment_col.plotly_chart(
         overlay_alpha_figure([_relabel(dataset_a.cm(reference=selected_ref), label_a),
                               _relabel(dataset_b.cm(reference=selected_ref), label_b)],
-                             cm_title, "Cm [-]"), width="content")
+                             cm_title, "Cm [-]"), width="stretch")
 
     eff_col, polar_col = st.columns(2)
     eff_col.plotly_chart(
         overlay_alpha_figure([_relabel(dataset_a.lift_to_drag(), label_a),
                               _relabel(dataset_b.lift_to_drag(), label_b)],
-                             "L/D", "L/D [-]", square=True), width="content")
+                             "L/D", "L/D [-]", wide=True), width="stretch")
     polar_col.plotly_chart(
         drag_polar_overlay_figure([(label_a, dataset_a.cl(), dataset_a.cd()),
-                                   (label_b, dataset_b.cl(), dataset_b.cd())]), width="content")
+                                   (label_b, dataset_b.cl(), dataset_b.cd())]), width="stretch")
 
     # ---- Delta table (B − A) at common α + CSV export ----
     st.divider()

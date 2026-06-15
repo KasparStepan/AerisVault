@@ -6,7 +6,7 @@ from aerocfd.models.polar import Polar
 from aerocfd.viz.plot_utils import (
     cl_alpha_figure, cd_alpha_figure, lift_to_drag_alpha_figure,
     drag_polar_figure, cm_alpha_figure, overlay_alpha_figure,
-    drag_polar_overlay_figure,
+    drag_polar_overlay_figure, COEFFICIENT_HEIGHT_PX, WIDE_HEIGHT_PX,
 )
 
 
@@ -50,44 +50,44 @@ class TestFigureHelpers:
         assert isinstance(cm_alpha_figure(cm), go.Figure)
 
 
-class TestAspectRatio:
-    """Coefficient-vs-α curves (CL, CD, Cm) are tall 1:2; L/D and the drag polar
-    are square 1:1."""
+class TestResponsiveSizing:
+    """Figures set a fixed height and responsive width (no fixed width), with a
+    horizontal legend below the plot."""
 
-    def test_coefficient_curves_are_1to2(self, cl_polar, cd_polar):
+    def test_coefficient_curves_use_coefficient_height_and_responsive_width(self, cl_polar, cd_polar):
         cm = Polar(cl_polar.alpha_deg, np.array([0.05, 0.0, -0.05, -0.1]), name="Cm", units="-")
         for fig in (cl_alpha_figure(cl_polar), cd_alpha_figure(cd_polar), cm_alpha_figure(cm)):
-            assert fig.layout.height == pytest.approx(2 * fig.layout.width)
+            assert fig.layout.height == COEFFICIENT_HEIGHT_PX
+            assert fig.layout.width is None       # responsive — Streamlit stretches it
+            assert fig.layout.legend.orientation == "h"
 
-    def test_efficiency_is_square(self, cl_polar):
+    def test_ld_and_drag_polar_use_wide_height(self, cl_polar, cd_polar):
         ld = Polar(cl_polar.alpha_deg, np.array([0.0, 5.0, 12.0, 10.0]), name="L/D", units="-")
-        fig = lift_to_drag_alpha_figure(ld)
-        assert fig.layout.height == pytest.approx(fig.layout.width)
-
-    def test_drag_polar_is_square(self, cl_polar, cd_polar):
-        fig = drag_polar_figure(cl_polar, cd_polar)
-        assert fig.layout.height == pytest.approx(fig.layout.width)
+        for fig in (lift_to_drag_alpha_figure(ld), drag_polar_figure(cl_polar, cd_polar)):
+            assert fig.layout.height == WIDE_HEIGHT_PX
+            assert fig.layout.width is None
 
 
 class TestOverlay:
-    def test_overlay_has_one_trace_per_polar_and_is_tall(self, cl_polar):
+    def test_overlay_one_trace_per_polar_coefficient_height(self, cl_polar):
         total = Polar(cl_polar.alpha_deg, cl_polar.values, name="CL")
         wing = Polar(cl_polar.alpha_deg, cl_polar.values * 0.7, name="CL (Wing)")
         fig = overlay_alpha_figure([total, wing], "CL by group", "CL [-]")
         assert isinstance(fig, go.Figure)
         assert len(fig.data) == 2
-        assert fig.layout.height == pytest.approx(2 * fig.layout.width)
+        assert fig.layout.height == COEFFICIENT_HEIGHT_PX
+        assert fig.layout.legend.orientation == "h"
 
-    def test_overlay_square_option_is_1to1(self, cl_polar):
-        fig = overlay_alpha_figure([cl_polar], "L/D by group", "L/D [-]", square=True)
-        assert fig.layout.height == pytest.approx(fig.layout.width)
+    def test_overlay_wide_option_uses_wide_height(self, cl_polar):
+        fig = overlay_alpha_figure([cl_polar], "L/D by group", "L/D [-]", wide=True)
+        assert fig.layout.height == WIDE_HEIGHT_PX
 
-    def test_drag_polar_overlay_one_trace_per_series_and_square(self, cl_polar, cd_polar):
+    def test_drag_polar_overlay_one_trace_per_series_wide(self, cl_polar, cd_polar):
         fig = drag_polar_overlay_figure([("Total", cl_polar, cd_polar),
                                          ("Wing", cl_polar, cd_polar)])
         assert isinstance(fig, go.Figure)
         assert len(fig.data) == 2
-        assert fig.layout.height == pytest.approx(fig.layout.width)
+        assert fig.layout.height == WIDE_HEIGHT_PX
 
 
 class TestCmTitleReference:

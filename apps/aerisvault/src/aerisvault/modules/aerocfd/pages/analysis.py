@@ -75,13 +75,13 @@ def render():
     # ---- Whole aircraft: CL/CD/Cm (tall) then L/D and drag polar (square) ----
     st.subheader("Whole aircraft")
     lift_col, drag_col, moment_col = st.columns(3)
-    lift_col.plotly_chart(cl_alpha_figure(dataset.cl()), width="content")
-    drag_col.plotly_chart(cd_alpha_figure(cd_polar), width="content")
-    moment_col.plotly_chart(whole_aircraft_cm_figure(), width="content")
+    lift_col.plotly_chart(cl_alpha_figure(dataset.cl()), width="stretch")
+    drag_col.plotly_chart(cd_alpha_figure(cd_polar), width="stretch")
+    moment_col.plotly_chart(whole_aircraft_cm_figure(), width="stretch")
 
     efficiency_col, polar_col = st.columns(2)
-    efficiency_col.plotly_chart(lift_to_drag_alpha_figure(dataset.lift_to_drag()), width="content")
-    polar_col.plotly_chart(drag_polar_figure(dataset.cl(), cd_polar), width="content")
+    efficiency_col.plotly_chart(lift_to_drag_alpha_figure(dataset.lift_to_drag()), width="stretch")
+    polar_col.plotly_chart(drag_polar_figure(dataset.cl(), cd_polar), width="stretch")
 
     # ---- By group: the same figures, each overlaying total + every group ----
     groups = dataset.groups()
@@ -97,10 +97,10 @@ def render():
         cm_curves += [dataset.cm(group=g, reference=selected_reference) for g in groups]
 
         g_lift, g_drag, g_moment = st.columns(3)
-        g_lift.plotly_chart(overlay_alpha_figure(cl_curves, "CL by group", "CL [-]"), width="content")
-        g_drag.plotly_chart(overlay_alpha_figure(cd_curves, "CD by group", "CD [-]"), width="content")
+        g_lift.plotly_chart(overlay_alpha_figure(cl_curves, "CL by group", "CL [-]"), width="stretch")
+        g_drag.plotly_chart(overlay_alpha_figure(cd_curves, "CD by group", "CD [-]"), width="stretch")
         g_moment.plotly_chart(
-            overlay_alpha_figure(cm_curves, f"Cm by group{cm_label}", "Cm [-]"), width="content",
+            overlay_alpha_figure(cm_curves, f"Cm by group{cm_label}", "Cm [-]"), width="stretch",
         )
 
         ld_curves = [dataset.lift_to_drag()] + [dataset.lift_to_drag(group=g) for g in groups]
@@ -109,6 +109,6 @@ def render():
 
         g_eff, g_polar = st.columns(2)
         g_eff.plotly_chart(
-            overlay_alpha_figure(ld_curves, "L/D by group", "L/D [-]", square=True), width="content",
+            overlay_alpha_figure(ld_curves, "L/D by group", "L/D [-]", wide=True), width="stretch",
         )
-        g_polar.plotly_chart(drag_polar_overlay_figure(polar_series), width="content")
+        g_polar.plotly_chart(drag_polar_overlay_figure(polar_series), width="stretch")
