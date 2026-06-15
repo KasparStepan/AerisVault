@@ -5,7 +5,7 @@ from aerisvault.portal.descriptor import ModuleDescriptor
 def _pages():
     import streamlit as st
     from aerisvault.modules.aerocfd.pages import (
-        aircraft, variants, operating_conditions, data_entry, analysis,
+        aircraft, variants, operating_conditions, data_entry, analysis, comparison,
     )
     # Explicit url_path per page: the callables are all named render(), so
     # Streamlit would otherwise infer colliding pathnames (mirrors the FSI module).
@@ -15,6 +15,7 @@ def _pages():
         st.Page(operating_conditions.render, title="Operating Conditions", icon="🌬️", url_path="aerocfd-operating-conditions"),
         st.Page(data_entry.render,           title="Data Entry",           icon="⌨️", url_path="aerocfd-data-entry"),
         st.Page(analysis.render,             title="Analysis",             icon="📈", url_path="aerocfd-analysis"),
+        st.Page(comparison.render,           title="Comparison",           icon="⚖️", url_path="aerocfd-comparison"),
     ]
 
 
