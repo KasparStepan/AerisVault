@@ -3,6 +3,7 @@ from aerocfd.models.aircraft import Aircraft
 from aerocfd.models.alpha_case import AlphaCase, ConvergenceStatus
 from aerocfd.models.dataset import AeroDataset
 from aerocfd.models.operating_condition import OperatingCondition
+from aerocfd.models.part_load import PartLoad
 from aerocfd.models.polar import Polar
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "ConvergenceStatus",
     "AeroDataset",
     "OperatingCondition",
+    "PartLoad",
     "Polar",
 ]
