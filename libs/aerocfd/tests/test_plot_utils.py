@@ -6,6 +6,7 @@ from aerocfd.models.polar import Polar
 from aerocfd.viz.plot_utils import (
     cl_alpha_figure, cd_alpha_figure, lift_to_drag_alpha_figure,
     drag_polar_figure, cm_alpha_figure, overlay_alpha_figure,
+    drag_polar_overlay_figure,
 )
 
 
@@ -76,3 +77,26 @@ class TestOverlay:
         assert isinstance(fig, go.Figure)
         assert len(fig.data) == 2
         assert fig.layout.height == pytest.approx(2 * fig.layout.width)
+
+    def test_overlay_square_option_is_1to1(self, cl_polar):
+        fig = overlay_alpha_figure([cl_polar], "L/D by group", "L/D [-]", square=True)
+        assert fig.layout.height == pytest.approx(fig.layout.width)
+
+    def test_drag_polar_overlay_one_trace_per_series_and_square(self, cl_polar, cd_polar):
+        fig = drag_polar_overlay_figure([("Total", cl_polar, cd_polar),
+                                         ("Wing", cl_polar, cd_polar)])
+        assert isinstance(fig, go.Figure)
+        assert len(fig.data) == 2
+        assert fig.layout.height == pytest.approx(fig.layout.width)
+
+
+class TestCmTitleReference:
+    def test_cm_title_includes_reference_when_present(self, cl_polar):
+        cm = Polar(cl_polar.alpha_deg, cl_polar.values, name="Cm @25% MAC")
+        fig = cm_alpha_figure(cm)
+        assert "25% MAC" in fig.layout.title.text
+
+    def test_cm_title_plain_without_reference(self, cl_polar):
+        cm = Polar(cl_polar.alpha_deg, cl_polar.values, name="Cm")
+        fig = cm_alpha_figure(cm)
+        assert "@" not in fig.layout.title.text

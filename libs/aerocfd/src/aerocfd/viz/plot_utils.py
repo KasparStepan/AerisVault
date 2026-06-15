@@ -54,7 +54,12 @@ def cd_alpha_figure(cd_polar: Polar) -> go.Figure:
 
 
 def cm_alpha_figure(cm_polar: Polar) -> go.Figure:
-    return _tall_alpha_figure(cm_polar, "Cm [-]", "Pitching-moment coefficient vs α")
+    # Surface the moment reference point in the title when the polar carries it
+    # (e.g. name "Cm @25% MAC"), so the figure is self-explanatory.
+    reference = ""
+    if "@" in cm_polar.name:
+        reference = " @ " + cm_polar.name.split("@", 1)[1].strip()
+    return _tall_alpha_figure(cm_polar, "Cm [-]", f"Pitching-moment coefficient vs α{reference}")
 
 
 def lift_to_drag_alpha_figure(ld_polar: Polar) -> go.Figure:
@@ -75,18 +80,40 @@ def drag_polar_figure(cl_polar: Polar, cd_polar: Polar) -> go.Figure:
     )
 
 
-def overlay_alpha_figure(polars: list[Polar], title: str, y_label: str) -> go.Figure:
-    """Overlay several α-indexed polars on one tall (1:2) figure.
+def overlay_alpha_figure(
+    polars: list[Polar], title: str, y_label: str, square: bool = False
+) -> go.Figure:
+    """Overlay several α-indexed polars on one figure.
 
     Used for group decomposition (total + per-group contributions). Each polar's
-    name becomes its legend entry (e.g. 'CL', 'CL (Wing)', 'CL (Fuselage)')."""
+    name becomes its legend entry (e.g. 'CL', 'CL (Wing)', 'CL (Fuselage)').
+    Tall (1:2) by default; square (1:1) when `square` is True — so a by-group
+    figure can match the shape of its whole-aircraft counterpart."""
     fig = go.Figure()
     for polar in polars:
         fig.add_trace(go.Scatter(
             x=polar.alpha_deg, y=polar.values, mode="lines+markers", name=polar.name,
         ))
+    width, height = (SQUARE_SIZE_PX, SQUARE_SIZE_PX) if square else (TALL_WIDTH_PX, TALL_HEIGHT_PX)
     fig.update_layout(
         title=title, xaxis_title="α [deg]", yaxis_title=y_label,
-        width=TALL_WIDTH_PX, height=TALL_HEIGHT_PX, autosize=False,
+        width=width, height=height, autosize=False,
+    )
+    return fig
+
+
+def drag_polar_overlay_figure(series: list[tuple[str, Polar, Polar]]) -> go.Figure:
+    """Overlay several drag polars (CL vs CD) on one square figure.
+
+    `series` is a list of (label, cl_polar, cd_polar) — e.g. the total and each
+    group — so the groups' drag polars can be compared on one chart."""
+    fig = go.Figure()
+    for label, cl_polar, cd_polar in series:
+        fig.add_trace(go.Scatter(
+            x=cd_polar.values, y=cl_polar.values, mode="lines+markers", name=label,
+        ))
+    fig.update_layout(
+        title="Drag polar by group", xaxis_title="CD [-]", yaxis_title="CL [-]",
+        width=SQUARE_SIZE_PX, height=SQUARE_SIZE_PX, autosize=False,
     )
     return fig
