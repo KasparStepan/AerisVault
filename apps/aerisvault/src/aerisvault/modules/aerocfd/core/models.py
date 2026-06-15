@@ -35,7 +35,7 @@ class AircraftORM(Base):
     axis_convention: Mapped[str] = mapped_column(String(32), default="x_fwd_z_up_rh")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
-    operating_conditions: Mapped[List["OperatingConditionORM"]] = relationship(
+    variants: Mapped[List["AircraftVariantORM"]] = relationship(
         back_populates="aircraft", cascade="all, delete-orphan"
     )
     parts: Mapped[List["AircraftPartORM"]] = relationship(
@@ -47,6 +47,36 @@ class AircraftORM(Base):
 
     def __repr__(self) -> str:
         return f"AircraftORM(id={self.id}, name='{self.name}')"
+
+
+class AircraftVariantORM(Base):
+    """A configuration of an aircraft, e.g. a tail (VOP) setting.
+
+    The physical aircraft (reference values, parts, moment reference points) is
+    shared; a variant captures a configuration of it and owns its operating
+    conditions. VOP angle / arm are recorded here for the future trim model; they
+    do not affect the computed coefficients yet (those come from the per-part
+    forces entered against each operating condition).
+    """
+    __tablename__ = "aircraft_variant"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    aircraft_id: Mapped[int] = mapped_column(
+        ForeignKey("aircraft.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    vop_angle_deg: Mapped[Optional[float]] = mapped_column(Float)
+    vop_arm_m: Mapped[Optional[float]] = mapped_column(Float)
+    display_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    aircraft: Mapped["AircraftORM"] = relationship(back_populates="variants")
+    operating_conditions: Mapped[List["OperatingConditionORM"]] = relationship(
+        back_populates="variant", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self) -> str:
+        return f"AircraftVariantORM(id={self.id}, name='{self.name}')"
 
 
 class MomentReferencePointORM(Base):
@@ -98,8 +128,8 @@ class OperatingConditionORM(Base):
     __tablename__ = "operating_condition"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    aircraft_id: Mapped[int] = mapped_column(
-        ForeignKey("aircraft.id", ondelete="CASCADE"), nullable=False
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("aircraft_variant.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
@@ -117,7 +147,7 @@ class OperatingConditionORM(Base):
     turbulent_viscosity_ratio: Mapped[Optional[float]] = mapped_column(Float)
     notes: Mapped[Optional[str]] = mapped_column(Text)
 
-    aircraft: Mapped["AircraftORM"] = relationship(back_populates="operating_conditions")
+    variant: Mapped["AircraftVariantORM"] = relationship(back_populates="operating_conditions")
     alpha_cases: Mapped[List["AlphaCaseORM"]] = relationship(
         back_populates="operating_condition", cascade="all, delete-orphan"
     )

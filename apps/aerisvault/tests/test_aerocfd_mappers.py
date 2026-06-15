@@ -32,7 +32,7 @@ def test_aircraft_orm_maps_to_dataclass():
 
 
 def test_operating_condition_orm_maps_to_dataclass():
-    orm = OperatingConditionORM(aircraft_id=1, name="SL_60", velocity_mps=60.0, density_kgpm3=1.225)
+    orm = OperatingConditionORM(variant_id=1, name="SL_60", velocity_mps=60.0, density_kgpm3=1.225)
     oc = operating_condition_to_dataclass(orm)
     assert isinstance(oc, OperatingCondition)
     assert (oc.name, oc.velocity_mps, oc.density_kgpm3) == ("SL_60", 60.0, 1.225)
@@ -70,7 +70,7 @@ def test_alpha_case_maps_per_reference_moments():
 
 def test_build_dataset_groups_sum_to_total():
     aircraft = AircraftORM(name="A", s_ref_m2=10.0, c_ref_m=1.5, b_ref_m=8.0)
-    oc = OperatingConditionORM(aircraft_id=1, name="oc", velocity_mps=50.0, density_kgpm3=1.225)
+    oc = OperatingConditionORM(variant_id=1, name="oc", velocity_mps=50.0, density_kgpm3=1.225)
     cases = [
         AlphaCaseORM(alpha_deg=0.0, part_loads=[
             _load("wing", "Wing", -10.0, 200.0, 0.0), _load("tail", "Tail", -2.0, 20.0, 0.0)]),

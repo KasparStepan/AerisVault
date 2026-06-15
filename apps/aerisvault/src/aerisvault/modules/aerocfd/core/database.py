@@ -13,12 +13,15 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from aerisvault.modules.aerocfd.core.models import (
-    AircraftORM, AircraftPartORM, AlphaCaseORM, AlphaCasePartLoadORM,
-    AlphaCasePartLoadMomentORM, Base, MomentReferencePointORM, OperatingConditionORM,
+    AircraftORM, AircraftPartORM, AircraftVariantORM, AlphaCaseORM,
+    AlphaCasePartLoadORM, AlphaCasePartLoadMomentORM, Base,
+    MomentReferencePointORM, OperatingConditionORM,
 )
 
 # Moment reference points every new aircraft starts with (editable afterwards).
 DEFAULT_MOMENT_REFERENCE_LABELS = ["20% MAC", "25% MAC", "30% MAC"]
+# Every aircraft starts with one variant so simple cases need not think about it.
+DEFAULT_VARIANT_NAME = "Baseline"
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +53,8 @@ class AeroCfdDatabase:
                 MomentReferencePointORM(label=label, display_order=order)
                 for order, label in enumerate(DEFAULT_MOMENT_REFERENCE_LABELS)
             ]
+            # Seed a default variant so every aircraft has one configuration.
+            aircraft.variants = [AircraftVariantORM(name=DEFAULT_VARIANT_NAME, display_order=0)]
             session.add(aircraft)
             session.commit()
             session.refresh(aircraft)
@@ -61,7 +66,7 @@ class AeroCfdDatabase:
                 select(AircraftORM)
                 .order_by(AircraftORM.created_at.desc())
                 .options(
-                    selectinload(AircraftORM.operating_conditions),
+                    selectinload(AircraftORM.variants),
                     selectinload(AircraftORM.parts),
                     selectinload(AircraftORM.moment_reference_points),
                 )
@@ -74,7 +79,7 @@ class AeroCfdDatabase:
                 select(AircraftORM)
                 .where(AircraftORM.id == aircraft_id)
                 .options(
-                    selectinload(AircraftORM.operating_conditions),
+                    selectinload(AircraftORM.variants),
                     selectinload(AircraftORM.parts),
                     selectinload(AircraftORM.moment_reference_points),
                 )
@@ -179,15 +184,61 @@ class AeroCfdDatabase:
             session.commit()
             return True
 
-    # --- Operating conditions ---
+    # --- Variants (configurations of an aircraft) ---
+
+    def list_variants(self, aircraft_id: int) -> List[AircraftVariantORM]:
+        with self.get_session() as session:
+            stmt = (
+                select(AircraftVariantORM)
+                .where(AircraftVariantORM.aircraft_id == aircraft_id)
+                .order_by(AircraftVariantORM.display_order, AircraftVariantORM.id)
+                .options(selectinload(AircraftVariantORM.operating_conditions))
+            )
+            return list(session.scalars(stmt).all())
+
+    def create_variant(
+        self, aircraft_id: int, name: str, description: str = "",
+        vop_angle_deg: Optional[float] = None, vop_arm_m: Optional[float] = None,
+    ) -> AircraftVariantORM:
+        with self.get_session() as session:
+            order = len(self.list_variants(aircraft_id))
+            variant = AircraftVariantORM(
+                aircraft_id=aircraft_id, name=name, description=description,
+                vop_angle_deg=vop_angle_deg, vop_arm_m=vop_arm_m, display_order=order,
+            )
+            session.add(variant)
+            session.commit()
+            session.refresh(variant)
+            return variant
+
+    def update_variant(self, variant_id: int, **fields) -> bool:
+        with self.get_session() as session:
+            variant = session.get(AircraftVariantORM, variant_id)
+            if not variant:
+                return False
+            for key, value in fields.items():
+                setattr(variant, key, value)
+            session.commit()
+            return True
+
+    def delete_variant(self, variant_id: int) -> bool:
+        with self.get_session() as session:
+            variant = session.get(AircraftVariantORM, variant_id)
+            if not variant:
+                return False
+            session.delete(variant)
+            session.commit()
+            return True
+
+    # --- Operating conditions (belong to a variant) ---
 
     def create_operating_condition(
-        self, aircraft_id: int, name: str, velocity_mps: float, density_kgpm3: float,
+        self, variant_id: int, name: str, velocity_mps: float, density_kgpm3: float,
         description: str = "", **optional_fields,
     ) -> OperatingConditionORM:
         with self.get_session() as session:
             oc = OperatingConditionORM(
-                aircraft_id=aircraft_id, name=name, velocity_mps=velocity_mps,
+                variant_id=variant_id, name=name, velocity_mps=velocity_mps,
                 density_kgpm3=density_kgpm3, description=description, **optional_fields,
             )
             session.add(oc)
@@ -195,11 +246,11 @@ class AeroCfdDatabase:
             session.refresh(oc)
             return oc
 
-    def list_operating_conditions(self, aircraft_id: int) -> List[OperatingConditionORM]:
+    def list_operating_conditions(self, variant_id: int) -> List[OperatingConditionORM]:
         with self.get_session() as session:
             stmt = (
                 select(OperatingConditionORM)
-                .where(OperatingConditionORM.aircraft_id == aircraft_id)
+                .where(OperatingConditionORM.variant_id == variant_id)
                 .order_by(OperatingConditionORM.id)
                 .options(selectinload(OperatingConditionORM.alpha_cases))
             )
