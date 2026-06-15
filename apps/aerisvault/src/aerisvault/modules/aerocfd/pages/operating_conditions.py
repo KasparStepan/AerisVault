@@ -5,7 +5,7 @@ import pandas as pd
 import streamlit as st
 
 from aerisvault.modules.aerocfd.core.bootstrap import ensure_initialized
-from aerisvault.modules.aerocfd.ui.components import aircraft_picker
+from aerisvault.modules.aerocfd.ui.components import aircraft_picker, variant_picker
 
 
 def render():
@@ -16,12 +16,15 @@ def render():
     aircraft = aircraft_picker()
     if aircraft is None:
         return
+    variant = variant_picker(aircraft.id)
+    if variant is None:
+        return
 
-    st.caption(f"Operating conditions for **{aircraft.name}**.")
+    st.caption(f"Operating conditions for **{aircraft.name}** · **{variant.name}**.")
     list_tab, add_tab = st.tabs(["List", "Add operating condition"])
 
     with list_tab:
-        operating_conditions = db.list_operating_conditions(aircraft.id)
+        operating_conditions = db.list_operating_conditions(variant.id)
         if not operating_conditions:
             st.info("No operating conditions yet. Add one in the next tab.")
         else:
@@ -50,7 +53,7 @@ def render():
             if st.form_submit_button("Create operating condition", type="primary"):
                 if name:
                     db.create_operating_condition(
-                        aircraft_id=aircraft.id, name=name,
+                        variant_id=variant.id, name=name,
                         velocity_mps=velocity, density_kgpm3=density, description=description,
                     )
                     st.success(f"Operating condition '{name}' created.")

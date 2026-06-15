@@ -25,7 +25,7 @@ def render():
                 "S_ref [m²]": a.s_ref_m2,
                 "c_ref [m]": a.c_ref_m,
                 "b_ref [m]": a.b_ref_m,
-                "Operating conditions": len(a.operating_conditions),
+                "Variants": len(a.variants),
             } for a in aircraft])
             st.dataframe(table, use_container_width=True, hide_index=True)
 

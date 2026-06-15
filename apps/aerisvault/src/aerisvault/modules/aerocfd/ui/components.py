@@ -10,7 +10,9 @@ from typing import Optional
 
 import streamlit as st
 
-from aerisvault.modules.aerocfd.core.models import AircraftORM, OperatingConditionORM
+from aerisvault.modules.aerocfd.core.models import (
+    AircraftORM, AircraftVariantORM, OperatingConditionORM,
+)
 
 
 def aircraft_picker(label: str = "Aircraft") -> Optional[AircraftORM]:
@@ -30,14 +32,31 @@ def aircraft_picker(label: str = "Aircraft") -> Optional[AircraftORM]:
     return selected
 
 
-def operating_condition_picker(
-    aircraft_id: int, label: str = "Operating condition"
-) -> Optional[OperatingConditionORM]:
-    """Dropdown of operating conditions for one aircraft. Returns the selected OC, or None."""
+def variant_picker(aircraft_id: int, label: str = "Variant") -> Optional[AircraftVariantORM]:
+    """Dropdown of variants for one aircraft. Returns the selected variant, or None."""
     db = st.session_state["aerocfd.db"]
-    operating_conditions = db.list_operating_conditions(aircraft_id)
+    variants = db.list_variants(aircraft_id)
+    if not variants:
+        st.info("No variants for this aircraft yet. Add one on the Variants page.")
+        return None
+
+    current_id = st.session_state.get("aerocfd.current_variant_id")
+    default_index = next((i for i, v in enumerate(variants) if v.id == current_id), 0)
+    labels = [f"{v.name}  (id {v.id})" for v in variants]
+    chosen = st.selectbox(label, labels, index=default_index)
+    selected = variants[labels.index(chosen)]
+    st.session_state["aerocfd.current_variant_id"] = selected.id
+    return selected
+
+
+def operating_condition_picker(
+    variant_id: int, label: str = "Operating condition"
+) -> Optional[OperatingConditionORM]:
+    """Dropdown of operating conditions for one variant. Returns the selected OC, or None."""
+    db = st.session_state["aerocfd.db"]
+    operating_conditions = db.list_operating_conditions(variant_id)
     if not operating_conditions:
-        st.info("No operating conditions for this aircraft yet. Add one on the Operating Conditions page.")
+        st.info("No operating conditions for this variant yet. Add one on the Operating Conditions page.")
         return None
 
     current_id = st.session_state.get("aerocfd.current_operating_condition_id")

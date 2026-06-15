@@ -56,15 +56,20 @@ PARTS = {
 Q_PA = dynamic_pressure(DENSITY_KGPM3, VELOCITY_MPS)
 
 
-def _part_loads_at(alpha_deg: float, part_ids: dict, ref_ids: dict) -> list[dict]:
-    """Build the per-part load entries for one α (forces + moments per reference)."""
+def _part_loads_at(alpha_deg: float, part_ids: dict, ref_ids: dict, vop_scale: float = 1.0) -> list[dict]:
+    """Build the per-part load entries for one α (forces + moments per reference).
+
+    vop_scale perturbs the 'vop' (tail) part's lift and moment, to mimic a tail
+    deflection between variants so their polars differ a little.
+    """
     entries = []
     for name, (_group, cz0, cza, cd0, cdk, cm0, cma) in PARTS.items():
-        fz_n = (cz0 + cza * alpha_deg) * Q_PA * S_REF_M2
+        scale = vop_scale if name == "vop" else 1.0
+        fz_n = (cz0 + cza * alpha_deg) * Q_PA * S_REF_M2 * scale
         # Drag is a -X force; it grows with α². (alpha/10) keeps the quadratic gentle.
         cd = cd0 + cdk * (alpha_deg / 10.0) ** 2
         fx_n = -cd * Q_PA * S_REF_M2
-        my_base_nm = (cm0 + cma * alpha_deg) * Q_PA * S_REF_M2 * C_REF_M
+        my_base_nm = (cm0 + cma * alpha_deg) * Q_PA * S_REF_M2 * C_REF_M * scale
 
         # Transfer the base moment to each reference point along the chord:
         # moving the reference aft by Δx changes the pitching moment by -Fz·Δx.
@@ -97,17 +102,27 @@ def main() -> None:
     part_ids = {name: db.add_part(aircraft.id, name, group).id for name, (group, *_) in PARTS.items()}
     ref_ids = {ref.label: ref.id for ref in db.list_reference_points(aircraft.id)}
 
-    oc = db.create_operating_condition(
-        aircraft.id, name="SL_50mps", velocity_mps=VELOCITY_MPS, density_kgpm3=DENSITY_KGPM3,
-        description="Sea-level, 50 m/s.",
+    # Configure the auto-created Baseline variant and add a second VOP setting, so
+    # the variant level has something to compare.
+    baseline = db.list_variants(aircraft.id)[0]
+    db.update_variant(baseline.id, name="Baseline (VOP 0°)", vop_angle_deg=0.0, vop_arm_m=4.5)
+    vop_plus = db.create_variant(
+        aircraft.id, "VOP +2°", description="Tail deflected +2°.", vop_angle_deg=2.0, vop_arm_m=4.5,
     )
-    for alpha in ALPHA_SWEEP_DEG:
-        db.set_alpha_case(oc.id, alpha, _part_loads_at(alpha, part_ids, ref_ids),
-                          convergence_status="converged")
+
+    for variant, vop_scale in [(baseline, 1.0), (vop_plus, 1.4)]:
+        oc = db.create_operating_condition(
+            variant.id, name="SL_50mps", velocity_mps=VELOCITY_MPS, density_kgpm3=DENSITY_KGPM3,
+            description="Sea-level, 50 m/s.",
+        )
+        for alpha in ALPHA_SWEEP_DEG:
+            db.set_alpha_case(oc.id, alpha, _part_loads_at(alpha, part_ids, ref_ids, vop_scale),
+                              convergence_status="converged")
 
     print(f"Seeded '{AIRCRAFT_NAME}': {len(PARTS)} parts in 3 groups, "
           f"{len(db.list_reference_points(aircraft.id))} reference points, "
-          f"1 operating condition, {len(ALPHA_SWEEP_DEG)} α cases.")
+          f"{len(db.list_variants(aircraft.id))} variants, each with 1 operating "
+          f"condition and {len(ALPHA_SWEEP_DEG)} α cases.")
     print(f"Database: {data_dir_for('aerocfd') / DB_NAME}")
 
 

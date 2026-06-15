@@ -12,7 +12,9 @@ from aerocfd.viz.plot_utils import (
 
 from aerisvault.modules.aerocfd.core.bootstrap import ensure_initialized
 from aerisvault.modules.aerocfd.core.mappers import build_dataset
-from aerisvault.modules.aerocfd.ui.components import aircraft_picker, operating_condition_picker
+from aerisvault.modules.aerocfd.ui.components import (
+    aircraft_picker, operating_condition_picker, variant_picker,
+)
 
 
 def render():
@@ -23,7 +25,10 @@ def render():
     aircraft = aircraft_picker()
     if aircraft is None:
         return
-    operating_condition = operating_condition_picker(aircraft.id)
+    variant = variant_picker(aircraft.id)
+    if variant is None:
+        return
+    operating_condition = operating_condition_picker(variant.id)
     if operating_condition is None:
         return
 
@@ -34,7 +39,7 @@ def render():
 
     dataset = build_dataset(aircraft, operating_condition, alpha_cases)
     st.caption(
-        f"**{aircraft.name}** · **{operating_condition.name}** · "
+        f"**{aircraft.name}** · **{variant.name}** · **{operating_condition.name}** · "
         f"{len(alpha_cases)} cases · q∞ = {dataset.dynamic_pressure_pa:.2f} Pa"
     )
 

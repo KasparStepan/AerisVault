@@ -7,7 +7,9 @@ import streamlit as st
 from aerocfd.models.alpha_case import ConvergenceStatus
 
 from aerisvault.modules.aerocfd.core.bootstrap import ensure_initialized
-from aerisvault.modules.aerocfd.ui.components import aircraft_picker, operating_condition_picker
+from aerisvault.modules.aerocfd.ui.components import (
+    aircraft_picker, operating_condition_picker, variant_picker,
+)
 
 _STATUS_OPTIONS = [s.value for s in ConvergenceStatus]
 
@@ -20,7 +22,10 @@ def render():
     aircraft = aircraft_picker()
     if aircraft is None:
         return
-    operating_condition = operating_condition_picker(aircraft.id)
+    variant = variant_picker(aircraft.id)
+    if variant is None:
+        return
+    operating_condition = operating_condition_picker(variant.id)
     if operating_condition is None:
         return
 
