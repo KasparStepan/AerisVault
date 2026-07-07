@@ -65,6 +65,13 @@ class Simulation(Base):
     ref_area: Mapped[Optional[float]] = mapped_column(Float)      # parachute reference area (m²)
     air_density: Mapped[float] = mapped_column(Float, default=1.225)  # kg/m³
     mass: Mapped[Optional[float]] = mapped_column(Float)           # payload mass (kg), used for F = m·a in finite mass
+
+    # FSI solver & mesh parameters
+    time_step_s: Mapped[Optional[float]] = mapped_column(Float)           # FSI time step (s)
+    contact_thickness_mm: Mapped[Optional[float]] = mapped_column(Float)  # virtual contact thickness of canopy (mm)
+    csd_element_size_mm: Mapped[Optional[float]] = mapped_column(Float)   # CSD mesh element size (mm)
+    cfd_element_size_mm: Mapped[Optional[float]] = mapped_column(Float)   # CFD mesh element size (mm)
+    wall_clock_time: Mapped[Optional[str]] = mapped_column(String(20))    # how long the solver ran (HH:MM:SS)
     
     # Relationships
     files: Mapped[List["File"]] = relationship(back_populates="simulation", cascade="all, delete-orphan")

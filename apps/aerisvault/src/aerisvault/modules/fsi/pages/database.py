@@ -43,6 +43,8 @@ def render():
                     "Files": len(s.files),
                     "V (m/s)": s.velocity if s.velocity else "—",
                     "Area (m²)": s.ref_area if s.ref_area else "—",
+                    "Δt (s)": s.time_step_s if s.time_step_s else "—",
+                    "Wall time": s.wall_clock_time if s.wall_clock_time else "—",
                     "Tags": ", ".join([t.name for t in s.tags]) if s.tags else "—",
                 })
             st.dataframe(pd.DataFrame(table_data), use_container_width=True, hide_index=True)
@@ -74,6 +76,11 @@ def render():
             with col_actions:
                 st.metric("Velocity", f"{selected_sim.velocity or '—'} m/s")
                 st.metric("Ref Area", f"{selected_sim.ref_area or '—'} m²")
+                st.metric("Time step", f"{selected_sim.time_step_s or '—'} s")
+                st.metric("Contact thickness", f"{selected_sim.contact_thickness_mm or '—'} mm")
+                st.metric("CSD element", f"{selected_sim.csd_element_size_mm or '—'} mm")
+                st.metric("CFD element", f"{selected_sim.cfd_element_size_mm or '—'} mm")
+                st.metric("Wall time", selected_sim.wall_clock_time or "—")
 
             # Tag management for the selected simulation
             st.divider()
@@ -127,6 +134,42 @@ def render():
                     new_density = col3.number_input("Air density (kg/m³)", value=float(selected_sim.air_density), min_value=0.0)
                     new_mass = col4.number_input("Mass (kg)", value=float(selected_sim.mass or 0.0), min_value=0.0)
 
+                    st.markdown("**FSI Solver & Mesh Parameters**")
+                    col5, col6, col7 = st.columns(3)
+                    new_time_step = col5.number_input(
+                        "Time step (s)",
+                        value=float(selected_sim.time_step_s or 0.0),
+                        min_value=0.0,
+                        format="%.2e",
+                        help="FSI time step in seconds.",
+                    )
+                    new_contact_thickness = col6.number_input(
+                        "Contact thickness (mm)",
+                        value=float(selected_sim.contact_thickness_mm or 0.0),
+                        min_value=0.0,
+                        help="Virtual contact thickness of the canopy.",
+                    )
+                    new_wall_clock_time = col7.text_input(
+                        "Wall clock time (HH:MM:SS)",
+                        value=selected_sim.wall_clock_time or "",
+                        placeholder="e.g. 04:32:15",
+                        help="How long the solver ran.",
+                    )
+
+                    col8, col9 = st.columns(2)
+                    new_csd_element = col8.number_input(
+                        "CSD element size (mm)",
+                        value=float(selected_sim.csd_element_size_mm or 0.0),
+                        min_value=0.0,
+                        help="Structural mesh element size.",
+                    )
+                    new_cfd_element = col9.number_input(
+                        "CFD element size (mm)",
+                        value=float(selected_sim.cfd_element_size_mm or 0.0),
+                        min_value=0.0,
+                        help="Fluid mesh element size.",
+                    )
+
                     if st.form_submit_button("Save changes", type="primary"):
                         db.update_simulation(
                             selected_sim.id,
@@ -137,6 +180,11 @@ def render():
                             ref_area=new_area if new_area > 0 else None,
                             air_density=new_density,
                             mass=new_mass if new_mass > 0 else None,
+                            time_step_s=new_time_step if new_time_step > 0 else None,
+                            contact_thickness_mm=new_contact_thickness if new_contact_thickness > 0 else None,
+                            csd_element_size_mm=new_csd_element if new_csd_element > 0 else None,
+                            cfd_element_size_mm=new_cfd_element if new_cfd_element > 0 else None,
+                            wall_clock_time=new_wall_clock_time.strip() or None,
                         )
                         st.success("Simulation updated.")
                         st.rerun()
@@ -211,6 +259,37 @@ def render():
                 help="Used for finite mass: F = m × a. Leave at 0 if not applicable.",
             )
 
+            st.markdown("**FSI Solver & Mesh Parameters** *(optional)*")
+            c1, c2, c3 = st.columns(3)
+            time_step = c1.number_input(
+                "Time step (s)",
+                min_value=0.0,
+                format="%.2e",
+                help="FSI time step in seconds.",
+            )
+            contact_thickness = c2.number_input(
+                "Contact thickness (mm)",
+                min_value=0.0,
+                help="Virtual contact thickness of the canopy.",
+            )
+            wall_clock_time = c3.text_input(
+                "Wall clock time (HH:MM:SS)",
+                placeholder="e.g. 04:32:15",
+                help="How long the solver ran.",
+            )
+
+            c4, c5 = st.columns(2)
+            csd_element = c4.number_input(
+                "CSD element size (mm)",
+                min_value=0.0,
+                help="Structural mesh element size.",
+            )
+            cfd_element = c5.number_input(
+                "CFD element size (mm)",
+                min_value=0.0,
+                help="Fluid mesh element size.",
+            )
+
             uploaded_files = st.file_uploader(
                 "Attach result files",
                 accept_multiple_files=True,
@@ -227,6 +306,11 @@ def render():
                     velocity=vel if vel > 0 else None,
                     ref_area=area if area > 0 else None,
                     mass=mass if mass > 0 else None,
+                    time_step_s=time_step if time_step > 0 else None,
+                    contact_thickness_mm=contact_thickness if contact_thickness > 0 else None,
+                    csd_element_size_mm=csd_element if csd_element > 0 else None,
+                    cfd_element_size_mm=cfd_element if cfd_element > 0 else None,
+                    wall_clock_time=wall_clock_time.strip() or None,
                 )
 
                 for f in uploaded_files:

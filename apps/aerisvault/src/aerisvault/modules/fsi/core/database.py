@@ -8,7 +8,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 
-from sqlalchemy import create_engine, delete, select, update
+from sqlalchemy import create_engine, delete, select, text, update
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from .models import Base, File, FileType, Simulation, Tag
@@ -28,8 +28,33 @@ class SimulationDatabase:
         self._init_db()
 
     def _init_db(self):
-        """Create tables if they don't exist."""
+        """Create tables if they don't exist, then apply incremental migrations."""
         Base.metadata.create_all(self.engine)
+        self._apply_schema_migrations()
+
+    def _apply_schema_migrations(self):
+        """Add columns introduced after the initial schema was created.
+
+        SQLite does not support IF NOT EXISTS on ALTER TABLE ADD COLUMN, so we
+        check PRAGMA table_info first and only add columns that are missing.
+        This is safe to call every startup — it is a no-op once all columns exist.
+        """
+        # Maps column name → SQLite type for every column added after the initial schema.
+        new_columns = {
+            "time_step_s": "REAL",
+            "contact_thickness_mm": "REAL",
+            "csd_element_size_mm": "REAL",
+            "cfd_element_size_mm": "REAL",
+            "wall_clock_time": "VARCHAR(20)",
+        }
+        with self.engine.connect() as conn:
+            result = conn.execute(text("PRAGMA table_info(simulations)"))
+            existing_columns = {row[1] for row in result.fetchall()}
+            for col_name, col_type in new_columns.items():
+                if col_name not in existing_columns:
+                    conn.execute(text(f"ALTER TABLE simulations ADD COLUMN {col_name} {col_type}"))
+                    logger.info("Schema migration: added column '%s' to simulations", col_name)
+            conn.commit()
 
     def get_session(self) -> Session:
         return self.SessionLocal()
