@@ -197,7 +197,7 @@ def render():
 
 
     # --- 7. Dashboard tabs ---
-    tabs = st.tabs(["📈 Plots", "📋 Statistics", "🎯 Events", "🗂️ Raw Data"])
+    tabs = st.tabs(["📈 Plots", "📋 Statistics", "⚡ Peak Load", "🎯 Events", "🗂️ Raw Data"])
 
     with tabs[0]:
         st.subheader("Interactive Plots")
@@ -275,6 +275,84 @@ def render():
                 st.info("Drag coefficient requires an 'Fpz' (axial force) curve.")
 
     with tabs[2]:
+        st.subheader("⚡ Peak / Snatch Load")
+        st.caption(
+            "Raw špička je jediný vzorek near-singulárního rázu — je řízená sítí a časovým krokem. "
+            "CFC filtr (SAE J211) odstraní gridem řízený vysokofrekvenční obsah a dá fyzikálně "
+            "srovnatelnou špičku. Vždy se zobrazí obojí: raw i filtrovaná."
+        )
+
+        # Silové křivky bereme ze surových (nefiltrovaných) dat — nezávisle na
+        # postranním filtru zobrazení. Snatch load nás zajímá na Fpz (osová),
+        # volitelně na výslednici všech tří složek.
+        force_curves = {name: c for name, c in curves_dict.items() if c.units == "N"}
+        if all(component in curves_dict for component in ("Fpx", "Fpy", "Fpz")):
+            from dynaprocessing.models.curve import Curve as _Curve
+            resultant_raw = _Curve.resultant(
+                curves_dict["Fpx"], curves_dict["Fpy"], curves_dict["Fpz"]
+            )
+            force_curves[resultant_raw.name] = resultant_raw
+
+        if not force_curves:
+            st.info("Nenalezena žádná silová křivka (jednotka N) pro analýzu špičky.")
+        else:
+            col_curve, col_cfc = st.columns(2)
+            default_index = list(force_curves).index("Fpz") if "Fpz" in force_curves else 0
+            selected_force = col_curve.selectbox(
+                "Silová křivka", list(force_curves), index=default_index
+            )
+            cfc_class = col_cfc.selectbox(
+                "CFC třída (SAE J211)", [60, 180, 600, 1000], index=0,
+                format_func=lambda c: f"CFC{c}  (≈ {int(c * 1.65)} Hz)",
+            )
+
+            raw_curve = force_curves[selected_force]
+            filtered_curve = raw_curve.apply_cfc_filter(cfc=cfc_class)
+
+            # Dominantní špička = extrém s největší velikostí (u Fpz je to min).
+            def dominant_peak(curve):
+                min_value, time_at_min = curve.get_min()
+                max_value, time_at_max = curve.get_max()
+                if abs(min_value) >= abs(max_value):
+                    return min_value, time_at_min
+                return max_value, time_at_max
+
+            raw_peak, raw_peak_time = dominant_peak(raw_curve)
+            filtered_peak, filtered_peak_time = dominant_peak(filtered_curve)
+            reduction_percent = (
+                (abs(raw_peak) - abs(filtered_peak)) / abs(raw_peak) * 100
+                if raw_peak else 0.0
+            )
+
+            # SAE J211 doporučuje vzorkování ≥ 10× CFC třída; při nižším filtr ořezává fyziku.
+            sampling_hz = (len(raw_curve.time) - 1) / (raw_curve.time[-1] - raw_curve.time[0])
+            if sampling_hz < 10 * cfc_class:
+                st.warning(
+                    f"Vzorkování dat ~{sampling_hz:.0f} Hz je pod SAE doporučením "
+                    f"(≥ {10 * cfc_class} Hz pro CFC{cfc_class}). Zvol nižší CFC třídu, "
+                    f"nebo v simulaci zvyš výstupní frekvenci drag databáze."
+                )
+
+            col_raw, col_filt, col_red = st.columns(3)
+            col_raw.metric("RAW špička", f"{raw_peak:.1f} N", help=f"v čase t = {raw_peak_time:.4f} s")
+            col_filt.metric(f"CFC{cfc_class} špička", f"{filtered_peak:.1f} N", help=f"v čase t = {filtered_peak_time:.4f} s")
+            col_red.metric("Snížení filtrem", f"{reduction_percent:.0f} %", help="o kolik CFC filtr snížil velikost špičky")
+
+            st.plotly_chart(
+                plot_curves_plotly(
+                    [raw_curve, filtered_curve],
+                    title=f"{selected_force}: raw vs CFC{cfc_class}",
+                    ylabel="Force [N]",
+                    **plot_style,
+                ),
+                use_container_width=True,
+            )
+            st.caption(
+                "Pozn.: pro spolehlivé porovnání špiček mezi sítěmi je nutná stejná CFC třída "
+                "a dostatek replikátů (nafukovací ráz je chaotický)."
+            )
+
+    with tabs[3]:
         st.subheader("Event Detection")
         st.caption("Automatically identifies key phases in the parachute deployment sequence.")
 
@@ -320,7 +398,7 @@ def render():
                 "This is available for infinite mass simulations."
             )
 
-    with tabs[3]:
+    with tabs[4]:
         st.subheader("Raw Values")
         df_raw = pd.DataFrame({"time [s]": all_curves[0].time})
         for curve in all_curves:

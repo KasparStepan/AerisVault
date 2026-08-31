@@ -208,3 +208,6 @@ __marimo__/
 
 # Windows "mark of the web" alternate-data-stream metadata (from WSL/downloads)
 *Zone.Identifier
+
+# AerisVault local data backups (kept on disk, not versioned)
+data/fsi/_backup_*/
